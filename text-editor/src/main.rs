@@ -1,42 +1,34 @@
+use std::error::Error;
 use std::io::{self, Read};
 use std::os::unix::io::AsRawFd;
 
-use cleanup::CleanupTask;
-use terminal::{disable_raw_mode, enable_raw_mode, get_populated_termios};
+use editor_instance::EditorInstance;
+use utils::{debug_input, panic_with_error, set_panic_hook};
 
-mod cleanup;
+mod editor_instance;
 mod terminal;
+mod utils;
 
-fn main() -> Result<(), io::Error> {
-    let stdin_fd = io::stdin().as_raw_fd();
+fn main() -> Result<(), Box<dyn Error>> {
+    let stdin = io::stdin();
+    let stdin_fd = stdin.as_raw_fd();
+    let mut stdin_lock = stdin.lock();
 
-    let original_termios = get_populated_termios(stdin_fd)?;
+    set_panic_hook(stdin_fd);
 
-    let _cleanup_restore_termios =
-        CleanupTask::new(move || disable_raw_mode(stdin_fd, original_termios).unwrap());
+    let active_editor = EditorInstance::new(stdin_fd);
+    let mut byte_buffer = [0u8; 1];
 
-    enable_raw_mode(stdin_fd)?;
+    loop {
+        match stdin_lock.read_exact(&mut byte_buffer) {
+            Ok(_) => {
+                let key = byte_buffer[0];
+                debug_input(key);
 
-    io::stdin()
-        .lock()
-        .bytes()
-        .for_each(|read_result| match read_result {
-            Ok(key) => {
-                if key.is_ascii_control() {
-                    println!("{}", key as u32);
-                } else {
-                    println!("{} ('{}')", key as char, key)
-                }
-
-                match key {
-                    b'q' => std::process::exit(0),
-                    _ => {}
-                }
+                active_editor.process_key(key);
             }
-            Err(e) => {
-                println!("Error reading byte: {:?}", e)
-            }
-        });
-
-    Ok(())
+            Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {}
+            Err(e) => panic_with_error(e, "Error reading byte into buffer"),
+        };
+    }
 }
