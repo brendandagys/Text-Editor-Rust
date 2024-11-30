@@ -3,6 +3,7 @@ use std::panic;
 
 use crate::terminal::{disable_raw_mode, get_populated_termios};
 
+#[allow(dead_code)]
 pub fn debug_input(key: u8) {
     if key.is_ascii_control() {
         println!("{}\r", key);
