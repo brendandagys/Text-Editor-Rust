@@ -1,7 +1,10 @@
 use std::error::Error;
 use std::panic;
 
-use crate::terminal::{disable_raw_mode, get_populated_termios};
+use crate::{
+    output::clear_display,
+    terminal::{disable_raw_mode, get_populated_termios},
+};
 
 #[allow(dead_code)]
 pub fn debug_input(key: u8) {
@@ -22,7 +25,9 @@ pub fn set_panic_hook(stdin_fd: i32) -> () {
     let default_panic_hook = panic::take_hook();
 
     panic::set_hook(Box::new(move |info| {
+        clear_display();
         disable_raw_mode(stdin_fd, original_termios);
+
         default_panic_hook(info);
     }));
 }
