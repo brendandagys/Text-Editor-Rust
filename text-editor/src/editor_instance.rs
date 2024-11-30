@@ -7,6 +7,10 @@ pub struct EditorInstance {
     original_termios: Termios,
 }
 
+fn ctrl_key(k: char) -> u8 {
+    (k as u8) & 0x1f // Ctrl key strips bits 5 and 6 from 7-bit ASCII
+}
+
 impl EditorInstance {
     pub fn new(stdin_fd: i32) -> Self {
         let original_termios = get_populated_termios(stdin_fd);
@@ -20,7 +24,7 @@ impl EditorInstance {
 
     pub fn process_key(&self, key: u8) -> () {
         match key {
-            b'q' => {
+            key if key == ctrl_key('q') => {
                 disable_raw_mode(self.stdin_fd, self.original_termios);
                 std::process::exit(0);
             }
