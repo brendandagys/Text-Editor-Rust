@@ -1,6 +1,9 @@
 use termios::Termios;
 
-use crate::terminal::{disable_raw_mode, enable_raw_mode, get_populated_termios};
+use crate::{
+    output::clear_display,
+    terminal::{disable_raw_mode, enable_raw_mode, get_populated_termios},
+};
 
 pub struct EditorInstance {
     stdin_fd: i32,
@@ -25,7 +28,9 @@ impl EditorInstance {
     pub fn process_key(&self, key: u8) -> () {
         match key {
             key if key == ctrl_key('q') => {
+                clear_display();
                 disable_raw_mode(self.stdin_fd, self.original_termios);
+
                 std::process::exit(0);
             }
 
