@@ -1,37 +1,33 @@
+use std::{io, os::fd::AsRawFd};
+
 use termios::{
-    tcgetattr, tcsetattr, Termios, BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP,
-    IXON, OPOST, TCSAFLUSH, VMIN, VTIME,
+    tcsetattr, Termios, BRKINT, CS8, ECHO, ICANON, ICRNL, IEXTEN, INPCK, ISIG, ISTRIP, IXON, OPOST,
+    TCSAFLUSH, VMIN, VTIME,
 };
 
 use crate::utils::panic_with_error;
 
-pub fn get_populated_termios(stdin_fd: i32) -> Termios {
-    let mut termios = match Termios::from_fd(stdin_fd) {
+pub fn get_populated_termios() -> Termios {
+    match Termios::from_fd(io::stdin().as_raw_fd()) {
         Ok(termios) => termios,
         Err(e) => panic_with_error(e, "Unable to get current terminal configuration"),
-    };
-
-    match tcgetattr(stdin_fd, &mut termios) {
-        Ok(_) => termios,
-        Err(e) => panic_with_error(
-            e,
-            "Unable to populate new `termios` object with current terminal configuration",
-        ),
     }
 }
 
-pub fn disable_raw_mode(stdin_fd: i32, original_termios: Termios) -> () {
+pub fn disable_raw_mode(original_termios: Termios) -> () {
+    let stdin_fd = io::stdin().as_raw_fd();
+
     match tcsetattr(stdin_fd, TCSAFLUSH, &original_termios) {
         Ok(_) => (),
         Err(e) => panic_with_error(e, "Unable to reset terminal settings (disable raw mode)"),
     }
 }
 
-pub fn enable_raw_mode(stdin_fd: i32) -> () {
-    let mut raw_termios = get_populated_termios(stdin_fd);
+pub fn enable_raw_mode(mut termios: Termios) -> Termios {
+    let stdin_fd = io::stdin().as_raw_fd();
 
     // `c_lflag`: LOCAL/MISCELLANEOUS FLAGS
-    raw_termios.c_lflag &= !(
+    termios.c_lflag &= !(
         ECHO    // Disable echoing keys to terminal
       | ICANON  // Disable Canonical mode (press Enter to submit)
       | IEXTEN  // Fix for possible Ctrl-V wait-for-next-character issue
@@ -41,7 +37,7 @@ pub fn enable_raw_mode(stdin_fd: i32) -> () {
 
     // `c_iflag`: INPUT FLAGS
 
-    raw_termios.c_iflag &= !(
+    termios.c_iflag &= !(
         IXON // No software flow control (pause/resume transmission) [Ctrl-S and Ctrl-Q]
       | BRKINT // Disable break condition causing a `SIGINT` (e.g. Ctrl-C)
       | INPCK // Disable input parity checking
@@ -51,20 +47,22 @@ pub fn enable_raw_mode(stdin_fd: i32) -> () {
     );
 
     // `c_oflag`: OUTPUT FLAGS
-    raw_termios.c_oflag &= !(
+    termios.c_oflag &= !(
         // Disable output post-processing: "\n" -> "\r\n"
         OPOST
     );
 
     // `c_cflag`: CONTROL FLAGS
-    raw_termios.c_cflag |= CS8; // Set character size to 8 bits/byte
+    termios.c_cflag |= CS8; // Set character size to 8 bits/byte
 
     // Control characters (array of bytes controlling various terminal settings)
-    raw_termios.c_cc[VMIN] = 0; // Minimum bytes needed before `read()` returns
-    raw_termios.c_cc[VTIME] = 1; // Time-out (1/10 second)
+    termios.c_cc[VMIN] = 0; // Minimum bytes needed before `read()` returns
+    termios.c_cc[VTIME] = 1; // Time-out (1/10 second)
 
-    match tcsetattr(stdin_fd, TCSAFLUSH, &raw_termios) {
+    match tcsetattr(stdin_fd, TCSAFLUSH, &termios) {
         Ok(_) => (),
         Err(e) => panic_with_error(e, "Unable to set terminal settings (enable raw mode)"),
     }
+
+    termios
 }
