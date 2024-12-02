@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::panic;
 
+use termion::terminal_size;
 use termios::Termios;
 
 use crate::{output::clear_display, terminal::disable_raw_mode};
@@ -27,4 +28,8 @@ pub fn set_panic_hook(original_termios: Termios) -> () {
 
         default_panic_hook(info);
     }));
+}
+
+pub fn get_window_size() -> (u16, u16) {
+    terminal_size().unwrap_or_else(|e| panic_with_error(e, "Failed to get terminal size"))
 }

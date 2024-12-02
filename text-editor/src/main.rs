@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let active_editor = EditorInstance::new(termios);
 
     loop {
-        refresh_screen();
+        refresh_screen(active_editor.screen_rows_columns.0);
         process_keypress(&mut stdin_lock, &active_editor);
     }
 }
