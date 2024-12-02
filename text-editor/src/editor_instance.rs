@@ -1,9 +1,10 @@
 use termios::Termios;
 
-use crate::{output::clear_display, terminal::disable_raw_mode};
+use crate::{output::clear_display, terminal::disable_raw_mode, utils::get_window_size};
 
 pub struct EditorInstance {
     original_termios: Termios,
+    pub screen_rows_columns: (u16, u16),
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -12,7 +13,12 @@ fn ctrl_key(k: char) -> u8 {
 
 impl EditorInstance {
     pub fn new(original_termios: Termios) -> Self {
-        EditorInstance { original_termios }
+        let (cols, rows) = get_window_size();
+
+        EditorInstance {
+            original_termios,
+            screen_rows_columns: (rows, cols),
+        }
     }
 
     pub fn process_key(&self, key: u8) -> () {
