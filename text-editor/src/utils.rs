@@ -1,8 +1,8 @@
 use crate::globals::get_buffer_lock;
 use crate::{output::clear_display, terminal::disable_raw_mode};
+use std::cmp::min;
 use std::io::{self, Read, StdinLock, Write};
 use std::panic;
-use std::{cmp::min, error::Error};
 use termion::terminal_size;
 use termios::Termios;
 
@@ -13,10 +13,6 @@ pub fn debug_input(key: u8) {
     } else {
         println!("{} ('{}')\r", key as char, key)
     }
-}
-
-pub fn panic_with_error(e: impl Error, message: &str) -> ! {
-    panic!("{message} | {:?}", e)
 }
 
 pub fn set_panic_hook(original_termios: Termios) -> () {
@@ -92,9 +88,9 @@ fn get_window_size_fallback(stdin_lock: &mut StdinLock) -> (u16, u16) {
             get_cursor_position(stdin_lock)
         }
         Err(e) => {
-            panic_with_error(
-                e,
-                "Failed to write to stdout while executing cursor-move commands",
+            panic!(
+                "Failed to write to stdout while executing cursor-move commands: {:?}",
+                e
             );
         }
     }
