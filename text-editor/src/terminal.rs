@@ -5,22 +5,15 @@ use termios::{
     TCSAFLUSH, VMIN, VTIME,
 };
 
-use crate::utils::panic_with_error;
-
 pub fn get_populated_termios() -> Termios {
-    match Termios::from_fd(io::stdin().as_raw_fd()) {
-        Ok(termios) => termios,
-        Err(e) => panic_with_error(e, "Unable to get current terminal configuration"),
-    }
+    Termios::from_fd(io::stdin().as_raw_fd()).expect("Unable to get current terminal configuration")
 }
 
 pub fn disable_raw_mode(original_termios: Termios) -> () {
     let stdin_fd = io::stdin().as_raw_fd();
 
-    match tcsetattr(stdin_fd, TCSAFLUSH, &original_termios) {
-        Ok(_) => (),
-        Err(e) => panic_with_error(e, "Unable to reset terminal settings (disable raw mode)"),
-    }
+    tcsetattr(stdin_fd, TCSAFLUSH, &original_termios)
+        .expect("Unable to reset terminal settings (disable raw mode)")
 }
 
 pub fn enable_raw_mode(mut termios: Termios) -> Termios {
@@ -59,10 +52,8 @@ pub fn enable_raw_mode(mut termios: Termios) -> Termios {
     termios.c_cc[VMIN] = 0; // Minimum bytes needed before `read()` returns
     termios.c_cc[VTIME] = 1; // Time-out (1/10 second)
 
-    match tcsetattr(stdin_fd, TCSAFLUSH, &termios) {
-        Ok(_) => (),
-        Err(e) => panic_with_error(e, "Unable to set terminal settings (enable raw mode)"),
-    }
+    tcsetattr(stdin_fd, TCSAFLUSH, &termios)
+        .expect("Unable to set terminal settings (enable raw mode)");
 
     termios
 }
