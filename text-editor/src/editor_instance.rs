@@ -1,6 +1,6 @@
-use termios::Termios;
-
 use crate::{output::clear_display, terminal::disable_raw_mode, utils::get_window_size};
+use std::io::StdinLock;
+use termios::Termios;
 
 pub struct EditorInstance {
     original_termios: Termios,
@@ -12,8 +12,8 @@ fn ctrl_key(k: char) -> u8 {
 }
 
 impl EditorInstance {
-    pub fn new(original_termios: Termios) -> Self {
-        let (cols, rows) = get_window_size();
+    pub fn new(original_termios: Termios, stdin_lock: &mut StdinLock) -> Self {
+        let (cols, rows) = get_window_size(stdin_lock);
 
         EditorInstance {
             original_termios,
