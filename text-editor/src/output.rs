@@ -13,8 +13,12 @@ pub fn clear_display() {
 }
 
 fn draw_rows(num_rows: u16) {
-    for _ in 0..num_rows {
-        write!(io::stdout(), "~\r\n").expect("Error drawing tildes (~)");
+    for row in 0..num_rows {
+        write!(io::stdout(), "~").expect("Error drawing tildes (~)");
+
+        if row < num_rows - 1 {
+            write!(io::stdout(), "\r\n").expect("Error drawing newlines");
+        }
     }
 }
 
