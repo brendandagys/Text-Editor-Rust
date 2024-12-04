@@ -4,7 +4,7 @@ use crate::{output::clear_display, terminal::disable_raw_mode};
 use signal_hook::consts::SIGWINCH;
 use signal_hook::iterator::Signals;
 use std::cmp::min;
-use std::io::{self, Read, StdinLock, Write};
+use std::io::{self, Read, Write};
 use std::sync::{Arc, RwLock};
 use std::{panic, thread};
 use termion::terminal_size;
@@ -31,7 +31,7 @@ pub fn set_panic_hook(original_termios: Termios) -> () {
 }
 
 /// Fallback for when `termion.terminal_size()` can not detect terminal dimensions
-fn get_cursor_position(stdin_lock: &mut StdinLock) -> (u16, u16) {
+fn get_cursor_position() -> (u16, u16) {
     let mut stdout = io::stdout();
 
     // Cursor Position Report (reply is like `\x1b[24;80R`)
@@ -45,7 +45,8 @@ fn get_cursor_position(stdin_lock: &mut StdinLock) -> (u16, u16) {
     let mut response = Vec::new();
 
     loop {
-        let n = stdin_lock
+        let n = io::stdin()
+            .lock()
             .read(&mut buffer)
             .expect("Failed to read from stdin");
 
@@ -74,12 +75,12 @@ fn get_cursor_position(stdin_lock: &mut StdinLock) -> (u16, u16) {
         .parse::<u16>()
         .expect("Failed to parse col into a u16");
 
-    (columns, rows)
+    (rows, columns)
 }
 
 /// Executes a command to move the cursor to the bottom-right of the screen, then
 /// retrieves the new cursor position to determine the terminal dimensions
-fn get_window_size_fallback(stdin_lock: &mut StdinLock) -> (u16, u16) {
+fn get_window_size_fallback() -> (u16, u16) {
     let mut stdout = io::stdout();
 
     // The following 2 commands stop the cursor from going past the screen edge
@@ -89,7 +90,7 @@ fn get_window_size_fallback(stdin_lock: &mut StdinLock) -> (u16, u16) {
     match write!(stdout, "{}{}", cursor_forward_command, cursor_down_command) {
         Ok(_) => {
             stdout.flush().expect("Failed to flush stdout");
-            get_cursor_position(stdin_lock)
+            get_cursor_position()
         }
         Err(e) => {
             panic!(
@@ -100,29 +101,28 @@ fn get_window_size_fallback(stdin_lock: &mut StdinLock) -> (u16, u16) {
     }
 }
 
-pub fn get_window_size(stdin_lock: &mut StdinLock) -> (u16, u16) {
+pub fn get_window_size() -> (u16, u16) {
     match terminal_size() {
         Ok((columns, rows)) => {
-            if min(columns, rows) == 0 {
-                return get_window_size_fallback(stdin_lock);
+            if min(rows, columns) == 0 {
+                return get_window_size_fallback();
             }
 
-            (columns, rows)
+            (rows, columns)
         }
-        Err(_) => get_window_size_fallback(stdin_lock),
+        Err(_) => get_window_size_fallback(),
     }
 }
 
 pub fn watch_for_window_size_change(editor_clone: Arc<RwLock<EditorInstance>>) -> () {
     thread::spawn(move || {
-        let mut signals = Signals::new(&[SIGWINCH]).unwrap();
+        let mut signals = Signals::new(&[SIGWINCH]).expect("Failed to register SIGWINCH signal");
 
         for _ in signals.forever() {
-            let (columns, rows) = get_window_size(&mut io::stdin().lock());
-            let mut editor = editor_clone
+            editor_clone
                 .write()
-                .expect("Could not get write lock for editor");
-            editor.screen_rows_columns = (rows, columns);
+                .expect("Could not get write lock for editor")
+                .screen_rows_columns = get_window_size();
         }
     });
 }
