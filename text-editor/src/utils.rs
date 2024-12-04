@@ -39,7 +39,7 @@ fn get_cursor_position() -> (u16, u16) {
         .write(b"\x1b[6n")
         .expect("Failed to write Cursor Position Report command to stdout");
 
-    stdout.flush().expect("Failed to flush stdout");
+    flush_stdout();
 
     let mut buffer = *get_buffer_lock();
     let mut response = Vec::new();
@@ -89,7 +89,7 @@ fn get_window_size_fallback() -> (u16, u16) {
 
     match write!(stdout, "{}{}", cursor_forward_command, cursor_down_command) {
         Ok(_) => {
-            stdout.flush().expect("Failed to flush stdout");
+            flush_stdout();
             get_cursor_position()
         }
         Err(e) => {
@@ -125,4 +125,8 @@ pub fn watch_for_window_size_change(editor_clone: Arc<RwLock<EditorInstance>>) -
                 .screen_rows_columns = get_window_size();
         }
     });
+}
+
+pub fn flush_stdout() -> () {
+    io::stdout().flush().expect("Failed to flush stdout");
 }

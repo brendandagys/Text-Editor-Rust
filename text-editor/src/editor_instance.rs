@@ -27,7 +27,6 @@ impl EditorInstance {
 
                 std::process::exit(0);
             }
-
             _ => {}
         }
     }
