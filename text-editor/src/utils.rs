@@ -1,8 +1,12 @@
+use crate::editor_instance::EditorInstance;
 use crate::globals::get_buffer_lock;
 use crate::{output::clear_display, terminal::disable_raw_mode};
+use signal_hook::consts::SIGWINCH;
+use signal_hook::iterator::Signals;
 use std::cmp::min;
 use std::io::{self, Read, StdinLock, Write};
-use std::panic;
+use std::sync::{Arc, RwLock};
+use std::{panic, thread};
 use termion::terminal_size;
 use termios::Termios;
 
@@ -107,4 +111,18 @@ pub fn get_window_size(stdin_lock: &mut StdinLock) -> (u16, u16) {
         }
         Err(_) => get_window_size_fallback(stdin_lock),
     }
+}
+
+pub fn watch_for_window_size_change(editor_clone: Arc<RwLock<EditorInstance>>) -> () {
+    thread::spawn(move || {
+        let mut signals = Signals::new(&[SIGWINCH]).unwrap();
+
+        for _ in signals.forever() {
+            let (columns, rows) = get_window_size(&mut io::stdin().lock());
+            let mut editor = editor_clone
+                .write()
+                .expect("Could not get write lock for editor");
+            editor.screen_rows_columns = (rows, columns);
+        }
+    });
 }
