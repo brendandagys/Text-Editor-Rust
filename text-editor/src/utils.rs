@@ -1,5 +1,6 @@
 use crate::editor_instance::EditorInstance;
 use crate::globals::get_buffer_lock;
+use crate::output::move_cursor_to_top_left;
 use crate::{output::clear_display, terminal::disable_raw_mode};
 use signal_hook::consts::SIGWINCH;
 use signal_hook::iterator::Signals;
@@ -24,6 +25,8 @@ pub fn set_panic_hook(original_termios: Termios) -> () {
 
     panic::set_hook(Box::new(move |info| {
         clear_display();
+        move_cursor_to_top_left();
+
         disable_raw_mode(original_termios);
 
         default_panic_hook(info);
