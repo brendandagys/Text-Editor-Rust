@@ -1,6 +1,7 @@
 use std::cmp::min;
 
 use crate::{
+    input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left},
     terminal::disable_raw_mode,
     utils::get_window_size,
@@ -70,14 +71,21 @@ impl EditorInstance {
         }
     }
 
-    pub fn process_key(&mut self, key: u8) -> () {
+    pub fn process_key(&mut self, key: Key) -> () {
         match key {
-            b'h' => self.move_cursor(CursorMovement::Left),
-            b'j' => self.move_cursor(CursorMovement::Down),
-            b'k' => self.move_cursor(CursorMovement::Up),
-            b'l' => self.move_cursor(CursorMovement::Right),
-            b'p' => panic!("Manual panic!"),
-            key if key == ctrl_key('q') => {
+            Key::U8(b'h') | Key::Custom(EditorKey::ArrowLeft) => {
+                self.move_cursor(CursorMovement::Left)
+            }
+            Key::U8(b'j') | Key::Custom(EditorKey::ArrowDown) => {
+                self.move_cursor(CursorMovement::Down)
+            }
+            Key::U8(b'k') | Key::Custom(EditorKey::ArrowUp) => self.move_cursor(CursorMovement::Up),
+            Key::U8(b'l') | Key::Custom(EditorKey::ArrowRight) => {
+                self.move_cursor(CursorMovement::Right)
+            }
+
+            Key::U8(b'p') => panic!("Manual panic!"),
+            Key::U8(key) if key == ctrl_key('q') => {
                 clear_display();
                 move_cursor_to_top_left();
                 disable_raw_mode(self.original_termios);
