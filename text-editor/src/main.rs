@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .screen_rows_columns
         };
 
-        refresh_screen(screen_rows_columns.0);
+        refresh_screen(screen_rows_columns.0, screen_rows_columns.1);
 
         process_keypress(
             &active_editor
