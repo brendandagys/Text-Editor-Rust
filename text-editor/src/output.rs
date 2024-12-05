@@ -1,6 +1,9 @@
-use std::io::{self, Write};
+use std::{
+    cmp::min,
+    io::{self, Write},
+};
 
-use crate::utils::flush_stdout;
+use crate::{globals::VERSION, utils::flush_stdout};
 
 pub fn move_cursor_to_top_left() -> () {
     // H: Cursor Position, e.g. <esc>[1;1H]
@@ -14,15 +17,41 @@ pub fn clear_display() -> () {
     flush_stdout();
 }
 
-fn draw_rows_to_buffer(num_rows: u16, buffer: &mut String) -> () {
+/// Uses a String as a buffer to store all lines, before calling `write` once
+/// Prints a welcome message in the middle of the screen using its row/column count
+fn draw_rows(num_rows: u16, num_columns: u16) -> () {
+    let mut buffer = String::new();
+
     for row in 0..num_rows {
-        *buffer += "~";
-        *buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
+        if row == num_rows / 3 {
+            let mut message = format!("Brendan's text editor --- version {VERSION}");
+            message = message[..min(num_columns as usize, message.len())].to_string();
+
+            let mut padding = (num_columns - message.len() as u16) / 2;
+
+            if padding > 0 {
+                buffer += "~";
+                padding -= 1;
+            }
+
+            for _ in 0..padding {
+                buffer += " ";
+            }
+
+            buffer += &message;
+        } else {
+            buffer += "~";
+        }
+
+        buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
 
         if row < num_rows - 1 {
-            *buffer += "\r\n";
+            buffer += "\r\n";
         }
     }
+
+    write!(io::stdout(), "{}", buffer).expect("Error writing to stdout during screen refresh");
+    flush_stdout();
 }
 
 fn hide_cursor() -> () {
@@ -37,19 +66,13 @@ fn show_cursor() -> () {
     flush_stdout();
 }
 
-pub fn refresh_screen(num_rows: u16) -> () {
+pub fn refresh_screen(num_rows: u16, num_columns: u16) -> () {
     // Escape sequences begin with escape characters `\x1b` (27) and '['
     // Escape sequence commands take arguments that come before the command itself
     // Arguments are separated by a ';'
     // https://vt100.net/docs/vt100-ug/chapter3.html
     hide_cursor();
-
-    let mut buffer = String::new();
-    draw_rows_to_buffer(num_rows, &mut buffer);
-
+    draw_rows(num_rows, num_columns);
     move_cursor_to_top_left();
     show_cursor();
-
-    write!(io::stdout(), "{}", buffer).expect("Error writing to stdout during screen refresh");
-    flush_stdout();
 }
