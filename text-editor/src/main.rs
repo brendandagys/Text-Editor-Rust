@@ -1,6 +1,6 @@
 use editor_instance::EditorInstance;
 use input::process_keypress;
-use output::refresh_screen;
+use output::{clear_display, refresh_screen};
 use std::error::Error;
 use std::sync::{Arc, RwLock};
 use terminal::{enable_raw_mode, get_populated_termios};
@@ -14,8 +14,9 @@ mod terminal;
 mod utils;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let termios = get_populated_termios();
+    clear_display(); // Does not rely on raw mode
 
+    let termios = get_populated_termios();
     set_panic_hook(termios);
     enable_raw_mode(termios);
 
