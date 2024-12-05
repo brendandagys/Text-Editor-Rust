@@ -1,4 +1,8 @@
-use crate::{output::clear_display, terminal::disable_raw_mode, utils::get_window_size};
+use crate::{
+    output::{clear_display, move_cursor_to_top_left},
+    terminal::disable_raw_mode,
+    utils::get_window_size,
+};
 use termios::Termios;
 
 pub struct EditorInstance {
@@ -23,6 +27,8 @@ impl EditorInstance {
             b'p' => panic!("Manual panic!"),
             key if key == ctrl_key('q') => {
                 clear_display();
+                move_cursor_to_top_left();
+
                 disable_raw_mode(self.original_termios);
 
                 std::process::exit(0);
