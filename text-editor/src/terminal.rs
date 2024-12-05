@@ -29,7 +29,6 @@ pub fn enable_raw_mode(mut termios: Termios) -> Termios {
     );
 
     // `c_iflag`: INPUT FLAGS
-
     termios.c_iflag &= !(
         IXON // No software flow control (pause/resume transmission) [Ctrl-S and Ctrl-Q]
       | BRKINT // Disable break condition causing a `SIGINT` (e.g. Ctrl-C)
