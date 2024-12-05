@@ -24,18 +24,21 @@ fn main() -> Result<(), Box<dyn Error>> {
     watch_for_window_size_change(Arc::clone(&active_editor));
 
     loop {
-        let window_size = {
+        let EditorInstance {
+            window_size,
+            cursor_position,
+            ..
+        } = *{
             active_editor
                 .read()
                 .expect("Could not get reader for editor")
-                .window_size
         };
 
-        refresh_screen(window_size);
+        refresh_screen(window_size, cursor_position);
 
         process_keypress(
-            &active_editor
-                .read()
+            &mut active_editor
+                .write()
                 .expect("Could not get reader for editor"),
         );
     }

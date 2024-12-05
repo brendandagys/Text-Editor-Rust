@@ -11,7 +11,7 @@ fn read_key() -> Option<u8> {
     }
 }
 
-pub fn process_keypress(editor: &EditorInstance) -> () {
+pub fn process_keypress(editor: &mut EditorInstance) -> () {
     if let Some(key) = read_key() {
         editor.process_key(key);
     }
