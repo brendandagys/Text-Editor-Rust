@@ -1,13 +1,17 @@
 use crate::{editor_instance::EditorInstance, globals::get_buffer_lock};
 use std::io::{self, Read};
 
+#[derive(PartialEq)]
 pub enum EditorKey {
     ArrowUp = 1000,
     ArrowDown,
     ArrowRight,
     ArrowLeft,
+    PageUp,
+    PageDown,
 }
 
+#[derive(PartialEq)]
 pub enum Key {
     U8(u8),
     Custom(EditorKey),
@@ -27,24 +31,47 @@ fn read_key_input() -> Option<Key> {
     let esc = Key::U8(b'\x1b');
 
     match read_single_key() {
-        Some(key1) => match key1 {
-            b'\x1b' => match read_single_key() {
-                Some(key2) => match key2 {
-                    b'[' => match read_single_key() {
-                        Some(key3) => match key3 {
+        Some(key) => match key {
+            b'\x1b' => {
+                let first = match read_single_key() {
+                    Some(key) => key,
+                    None => return Some(esc),
+                };
+
+                let second = match read_single_key() {
+                    Some(key) => key,
+                    None => return Some(esc),
+                };
+
+                match first {
+                    b'[' => match second {
+                        b'0'..=b'9' => {
+                            let third = match read_single_key() {
+                                Some(key) => key,
+                                None => return Some(esc),
+                            };
+
+                            match third {
+                                b'~' => match second {
+                                    b'5' => Some(Key::Custom(EditorKey::PageUp)),
+                                    b'6' => Some(Key::Custom(EditorKey::PageDown)),
+                                    _ => Some(esc),
+                                },
+                                _ => Some(esc),
+                            }
+                        }
+                        _ => match second {
                             b'A' => Some(Key::Custom(EditorKey::ArrowUp)),
                             b'B' => Some(Key::Custom(EditorKey::ArrowDown)),
                             b'C' => Some(Key::Custom(EditorKey::ArrowRight)),
                             b'D' => Some(Key::Custom(EditorKey::ArrowLeft)),
                             _ => Some(esc),
                         },
-                        None => Some(esc),
                     },
-                    _ => Some(esc),
-                },
-                None => Some(esc),
-            },
-            _ => Some(Key::U8(key1)),
+                    _ => return Some(esc),
+                }
+            }
+            _ => Some(Key::U8(key)),
         },
         None => None,
     }
