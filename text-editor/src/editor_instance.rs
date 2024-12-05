@@ -28,7 +28,6 @@ impl EditorInstance {
             key if key == ctrl_key('q') => {
                 clear_display();
                 move_cursor_to_top_left();
-
                 disable_raw_mode(self.original_termios);
 
                 std::process::exit(0);

@@ -26,7 +26,6 @@ pub fn set_panic_hook(original_termios: Termios) -> () {
     panic::set_hook(Box::new(move |info| {
         clear_display();
         move_cursor_to_top_left();
-
         disable_raw_mode(original_termios);
 
         default_panic_hook(info);
