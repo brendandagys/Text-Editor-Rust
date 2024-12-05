@@ -17,6 +17,7 @@ pub fn clear_display() -> () {
 fn draw_rows_to_buffer(num_rows: u16, buffer: &mut String) -> () {
     for row in 0..num_rows {
         *buffer += "~";
+        *buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
 
         if row < num_rows - 1 {
             *buffer += "\r\n";
@@ -42,8 +43,6 @@ pub fn refresh_screen(num_rows: u16) -> () {
     // Arguments are separated by a ';'
     // https://vt100.net/docs/vt100-ug/chapter3.html
     hide_cursor();
-    clear_display();
-    move_cursor_to_top_left();
 
     let mut buffer = String::new();
     draw_rows_to_buffer(num_rows, &mut buffer);
