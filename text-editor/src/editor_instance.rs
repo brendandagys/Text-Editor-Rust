@@ -5,9 +5,15 @@ use crate::{
 };
 use termios::Termios;
 
+#[derive(Clone, Copy)]
+pub struct WindowSize {
+    pub rows: u16,
+    pub columns: u16,
+}
+
 pub struct EditorInstance {
     original_termios: Termios,
-    pub screen_rows_columns: (u16, u16),
+    pub window_size: WindowSize,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -18,7 +24,7 @@ impl EditorInstance {
     pub fn new(original_termios: Termios) -> Self {
         EditorInstance {
             original_termios,
-            screen_rows_columns: get_window_size(),
+            window_size: get_window_size(),
         }
     }
 
