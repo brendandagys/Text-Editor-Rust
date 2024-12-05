@@ -3,7 +3,7 @@ use std::{
     io::{self, Write},
 };
 
-use crate::{globals::VERSION, utils::flush_stdout};
+use crate::{editor_instance::WindowSize, globals::VERSION, utils::flush_stdout};
 
 pub fn move_cursor_to_top_left() -> () {
     // H: Cursor Position, e.g. <esc>[1;1H]
@@ -19,8 +19,12 @@ pub fn clear_display() -> () {
 
 /// Uses a String as a buffer to store all lines, before calling `write` once
 /// Prints a welcome message in the middle of the screen using its row/column count
-fn draw_rows(num_rows: u16, num_columns: u16) -> () {
+fn draw_rows(window_size: WindowSize) -> () {
     let mut buffer = String::new();
+    let WindowSize {
+        rows: num_rows,
+        columns: num_columns,
+    } = window_size;
 
     for row in 0..num_rows {
         if row == num_rows / 3 {
@@ -66,13 +70,13 @@ fn show_cursor() -> () {
     flush_stdout();
 }
 
-pub fn refresh_screen(num_rows: u16, num_columns: u16) -> () {
+pub fn refresh_screen(window_size: WindowSize) -> () {
     // Escape sequences begin with escape characters `\x1b` (27) and '['
     // Escape sequence commands take arguments that come before the command itself
     // Arguments are separated by a ';'
     // https://vt100.net/docs/vt100-ug/chapter3.html
     hide_cursor();
-    draw_rows(num_rows, num_columns);
+    draw_rows(window_size);
     move_cursor_to_top_left();
     show_cursor();
 }

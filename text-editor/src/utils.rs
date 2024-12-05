@@ -1,4 +1,4 @@
-use crate::editor_instance::EditorInstance;
+use crate::editor_instance::{EditorInstance, WindowSize};
 use crate::globals::get_buffer_lock;
 use crate::output::move_cursor_to_top_left;
 use crate::{output::clear_display, terminal::disable_raw_mode};
@@ -33,7 +33,7 @@ pub fn set_panic_hook(original_termios: Termios) -> () {
 }
 
 /// Fallback for when `termion.terminal_size()` can not detect terminal dimensions
-fn get_cursor_position() -> (u16, u16) {
+fn get_cursor_position() -> WindowSize {
     let mut stdout = io::stdout();
 
     // Cursor Position Report (reply is like `\x1b[24;80R`)
@@ -77,12 +77,12 @@ fn get_cursor_position() -> (u16, u16) {
         .parse::<u16>()
         .expect("Failed to parse col into a u16");
 
-    (rows, columns)
+    WindowSize { rows, columns }
 }
 
 /// Executes a command to move the cursor to the bottom-right of the screen, then
 /// retrieves the new cursor position to determine the terminal dimensions
-fn get_window_size_fallback() -> (u16, u16) {
+fn get_window_size_fallback() -> WindowSize {
     let mut stdout = io::stdout();
 
     // The following 2 commands stop the cursor from going past the screen edge
@@ -103,14 +103,14 @@ fn get_window_size_fallback() -> (u16, u16) {
     }
 }
 
-pub fn get_window_size() -> (u16, u16) {
+pub fn get_window_size() -> WindowSize {
     match terminal_size() {
         Ok((columns, rows)) => {
             if min(rows, columns) == 0 {
                 return get_window_size_fallback();
             }
 
-            (rows, columns)
+            WindowSize { rows, columns }
         }
         Err(_) => get_window_size_fallback(),
     }
@@ -124,7 +124,7 @@ pub fn watch_for_window_size_change(editor_clone: Arc<RwLock<EditorInstance>>) -
             editor_clone
                 .write()
                 .expect("Could not get write lock for editor")
-                .screen_rows_columns = get_window_size();
+                .window_size = get_window_size();
         }
     });
 }

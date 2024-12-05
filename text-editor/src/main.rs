@@ -24,14 +24,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     watch_for_window_size_change(Arc::clone(&active_editor));
 
     loop {
-        let screen_rows_columns = {
+        let window_size = {
             active_editor
                 .read()
                 .expect("Could not get reader for editor")
-                .screen_rows_columns
+                .window_size
         };
 
-        refresh_screen(screen_rows_columns.0, screen_rows_columns.1);
+        refresh_screen(window_size);
 
         process_keypress(
             &active_editor
