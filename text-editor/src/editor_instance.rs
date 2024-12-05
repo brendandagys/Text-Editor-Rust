@@ -84,6 +84,17 @@ impl EditorInstance {
                 self.move_cursor(CursorMovement::Right)
             }
 
+            Key::Custom(EditorKey::PageUp) => {
+                for _ in 0..self.window_size.rows {
+                    self.move_cursor(CursorMovement::Up);
+                }
+            }
+            Key::Custom(EditorKey::PageDown) => {
+                for _ in 0..self.window_size.rows {
+                    self.move_cursor(CursorMovement::Down);
+                }
+            }
+
             Key::U8(b'p') => panic!("Manual panic!"),
             Key::U8(key) if key == ctrl_key('q') => {
                 clear_display();
