@@ -95,6 +95,9 @@ impl EditorInstance {
                 }
             }
 
+            Key::Custom(EditorKey::Home) => self.cursor_position.x = 0,
+            Key::Custom(EditorKey::End) => self.cursor_position.x = self.window_size.columns - 1,
+
             Key::U8(b'p') => panic!("Manual panic!"),
             Key::U8(key) if key == ctrl_key('q') => {
                 clear_display();
