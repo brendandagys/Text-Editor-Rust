@@ -7,6 +7,7 @@ pub enum EditorKey {
     ArrowDown,
     ArrowUp,
     ArrowRight,
+    Delete,
     Home,
     End,
     PageUp,
@@ -56,6 +57,7 @@ fn read_key_input() -> Option<Key> {
                             match third {
                                 b'~' => match second {
                                     b'1' => Some(Key::Custom(EditorKey::Home)),
+                                    b'3' => Some(Key::Custom(EditorKey::Delete)),
                                     b'4' => Some(Key::Custom(EditorKey::End)),
                                     b'5' => Some(Key::Custom(EditorKey::PageUp)),
                                     b'6' => Some(Key::Custom(EditorKey::PageDown)),
