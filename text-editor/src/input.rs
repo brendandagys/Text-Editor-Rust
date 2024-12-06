@@ -3,10 +3,12 @@ use std::io::{self, Read};
 
 #[derive(PartialEq)]
 pub enum EditorKey {
-    ArrowUp = 1000,
+    ArrowLeft = 1000,
     ArrowDown,
+    ArrowUp,
     ArrowRight,
-    ArrowLeft,
+    Home,
+    End,
     PageUp,
     PageDown,
 }
@@ -53,8 +55,12 @@ fn read_key_input() -> Option<Key> {
 
                             match third {
                                 b'~' => match second {
+                                    b'1' => Some(Key::Custom(EditorKey::Home)),
+                                    b'4' => Some(Key::Custom(EditorKey::End)),
                                     b'5' => Some(Key::Custom(EditorKey::PageUp)),
                                     b'6' => Some(Key::Custom(EditorKey::PageDown)),
+                                    b'7' => Some(Key::Custom(EditorKey::Home)),
+                                    b'8' => Some(Key::Custom(EditorKey::End)),
                                     _ => Some(esc),
                                 },
                                 _ => Some(esc),
@@ -65,10 +71,17 @@ fn read_key_input() -> Option<Key> {
                             b'B' => Some(Key::Custom(EditorKey::ArrowDown)),
                             b'C' => Some(Key::Custom(EditorKey::ArrowRight)),
                             b'D' => Some(Key::Custom(EditorKey::ArrowLeft)),
+                            b'H' => Some(Key::Custom(EditorKey::Home)),
+                            b'F' => Some(Key::Custom(EditorKey::End)),
                             _ => Some(esc),
                         },
                     },
-                    _ => return Some(esc),
+                    b'O' => match second {
+                        b'H' => Some(Key::Custom(EditorKey::Home)),
+                        b'F' => Some(Key::Custom(EditorKey::End)),
+                        _ => Some(esc),
+                    },
+                    _ => Some(esc),
                 }
             }
             _ => Some(Key::U8(key)),
