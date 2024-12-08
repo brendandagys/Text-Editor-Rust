@@ -13,7 +13,7 @@ mod output;
 mod terminal;
 mod utils;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct WindowSize {
     pub rows: u16,
     pub columns: u16,
@@ -41,7 +41,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             .read()
             .expect("Could not get window size read lock");
 
-        refresh_screen(&active_editor, window_size);
+        if window_size != active_editor.window_size {
+            active_editor.window_size = window_size;
+        }
+
+        refresh_screen(&mut active_editor);
 
         process_keypress(&mut active_editor);
     }
