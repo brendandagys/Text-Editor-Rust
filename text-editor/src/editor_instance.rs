@@ -1,5 +1,6 @@
 use std::{
     cmp::min,
+    fs::File,
     io::{self, Write},
 };
 
@@ -11,6 +12,7 @@ use crate::{
     utils::{flush_stdout, get_window_size},
     WindowSize,
 };
+use termion::input::TermRead;
 use termios::Termios;
 
 #[derive(Clone, Copy)]
@@ -26,10 +28,16 @@ pub enum CursorMovement {
     Right,
 }
 
+struct Line {
+    text: String,
+}
+
 pub struct EditorInstance {
     original_termios: Termios,
     pub window_size: WindowSize,
     pub cursor_position: CursorPosition,
+    line_count: u32,
+    line: Option<Line>,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -42,7 +50,21 @@ impl EditorInstance {
             original_termios,
             window_size: get_window_size(),
             cursor_position: CursorPosition { x: 0, y: 0 },
+            line_count: 0,
+            line: None,
         }
+    }
+
+    pub fn open(&mut self, file_path: &str) {
+        let mut file = File::open(file_path).expect("Failed to open file at specified path");
+
+        if let Some(line) = file.read_line().expect("Failed to read line from file") {
+            self.line = Some(Line {
+                text: line.trim_end_matches(['\r', '\n']).to_string(),
+            });
+
+            self.line_count = 1;
+        };
     }
 
     pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
@@ -128,25 +150,34 @@ impl EditorInstance {
         let mut buffer = String::new();
 
         for row in 0..window_size.rows {
-            if row == window_size.rows / 3 {
-                let message = format!("Brendan's text editor --- version {VERSION}");
-                let message =
-                    message[..min(window_size.columns as usize, message.len())].to_string();
+            if row as u32 >= self.line_count {
+                if self.line_count == 0 && row == window_size.rows / 3 {
+                    let message = format!("Brendan's text editor --- version {VERSION}");
+                    let message =
+                        message[..min(window_size.columns as usize, message.len())].to_string();
 
-                let mut padding = (window_size.columns - message.len() as u16) / 2;
+                    let mut padding = (window_size.columns - message.len() as u16) / 2;
 
-                if padding > 0 {
+                    if padding > 0 {
+                        buffer += "~";
+                        padding -= 1;
+                    }
+
+                    for _ in 0..padding {
+                        buffer += " ";
+                    }
+
+                    buffer += &message;
+                } else {
                     buffer += "~";
-                    padding -= 1;
                 }
-
-                for _ in 0..padding {
-                    buffer += " ";
-                }
-
-                buffer += &message;
             } else {
-                buffer += "~";
+                buffer += &match &self.line {
+                    Some(line) => {
+                        line.text[..min(window_size.columns as usize, line.text.len())].to_string()
+                    }
+                    None => "".to_string(),
+                };
             }
 
             buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])

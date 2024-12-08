@@ -31,6 +31,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut active_editor = EditorInstance::new(termios);
 
+    let args = std::env::args();
+    if args.len() > 1 {
+        active_editor.open(&args.collect::<Vec<String>>()[1]);
+    }
+
     loop {
         let window_size = *window_size
             .read()
