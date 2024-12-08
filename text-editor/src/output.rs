@@ -1,13 +1,5 @@
-use std::{
-    cmp::min,
-    io::{self, Write},
-};
-
-use crate::{
-    editor_instance::{CursorPosition, WindowSize},
-    globals::VERSION,
-    utils::flush_stdout,
-};
+use crate::{editor_instance::EditorInstance, utils::flush_stdout, WindowSize};
+use std::io::{self, Write};
 
 pub fn move_cursor_to_top_left() -> () {
     // H: Cursor Position, e.g. <esc>[1;1H]
@@ -18,47 +10,6 @@ pub fn move_cursor_to_top_left() -> () {
 pub fn clear_display() -> () {
     // J: Erase in Display, 2: clear entire screen
     write!(io::stdout(), "\x1b[2J").expect("Error clearing screen");
-    flush_stdout();
-}
-
-/// Uses a String as a buffer to store all lines, before calling `write` once
-/// Prints a welcome message in the middle of the screen using its row/column count
-fn draw_rows(window_size: WindowSize) -> () {
-    let mut buffer = String::new();
-    let WindowSize {
-        rows: num_rows,
-        columns: num_columns,
-    } = window_size;
-
-    for row in 0..num_rows {
-        if row == num_rows / 3 {
-            let mut message = format!("Brendan's text editor --- version {VERSION}");
-            message = message[..min(num_columns as usize, message.len())].to_string();
-
-            let mut padding = (num_columns - message.len() as u16) / 2;
-
-            if padding > 0 {
-                buffer += "~";
-                padding -= 1;
-            }
-
-            for _ in 0..padding {
-                buffer += " ";
-            }
-
-            buffer += &message;
-        } else {
-            buffer += "~";
-        }
-
-        buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
-
-        if row < num_rows - 1 {
-            buffer += "\r\n";
-        }
-    }
-
-    write!(io::stdout(), "{}", buffer).expect("Error writing to stdout during screen refresh");
     flush_stdout();
 }
 
@@ -74,29 +25,14 @@ fn show_cursor() -> () {
     flush_stdout();
 }
 
-fn move_cursor_to_position(cursor_position: CursorPosition) -> () {
-    // H: Cursor Position, e.g. <esc>[1;1H]
-    write!(
-        io::stdout(),
-        "\x1b[{};{}H",
-        cursor_position.y + 1,
-        cursor_position.x + 1
-    )
-    .expect("Error positioning cursor");
-
-    flush_stdout();
-}
-
-pub fn refresh_screen(window_size: WindowSize, cursor_position: CursorPosition) -> () {
+pub fn refresh_screen(editor_instance: &EditorInstance, window_size: WindowSize) -> () {
     // Escape sequences begin with escape characters `\x1b` (27) and '['
     // Escape sequence commands take arguments that come before the command itself
     // Arguments are separated by a ';'
     // https://vt100.net/docs/vt100-ug/chapter3.html
     hide_cursor();
     move_cursor_to_top_left();
-
-    draw_rows(window_size);
-
-    move_cursor_to_position(cursor_position);
+    editor_instance.draw_rows(window_size);
+    editor_instance.move_cursor_to_position();
     show_cursor();
 }

@@ -1,18 +1,17 @@
-use std::cmp::min;
+use std::{
+    cmp::min,
+    io::{self, Write},
+};
 
 use crate::{
+    globals::VERSION,
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left},
     terminal::disable_raw_mode,
-    utils::get_window_size,
+    utils::{flush_stdout, get_window_size},
+    WindowSize,
 };
 use termios::Termios;
-
-#[derive(Clone, Copy)]
-pub struct WindowSize {
-    pub rows: u16,
-    pub columns: u16,
-}
 
 #[derive(Clone, Copy)]
 pub struct CursorPosition {
@@ -108,5 +107,56 @@ impl EditorInstance {
             }
             _ => {}
         }
+    }
+
+    pub fn move_cursor_to_position(&self) -> () {
+        // H: Cursor Position, e.g. <esc>[1;1H]
+        write!(
+            io::stdout(),
+            "\x1b[{};{}H",
+            self.cursor_position.y + 1,
+            self.cursor_position.x + 1
+        )
+        .expect("Error positioning cursor");
+
+        flush_stdout();
+    }
+
+    /// Uses a String as a buffer to store all lines, before calling `write` once
+    /// Prints a welcome message in the middle of the screen using its row/column count
+    pub fn draw_rows(&self, window_size: WindowSize) -> () {
+        let mut buffer = String::new();
+
+        for row in 0..window_size.rows {
+            if row == window_size.rows / 3 {
+                let message = format!("Brendan's text editor --- version {VERSION}");
+                let message =
+                    message[..min(window_size.columns as usize, message.len())].to_string();
+
+                let mut padding = (window_size.columns - message.len() as u16) / 2;
+
+                if padding > 0 {
+                    buffer += "~";
+                    padding -= 1;
+                }
+
+                for _ in 0..padding {
+                    buffer += " ";
+                }
+
+                buffer += &message;
+            } else {
+                buffer += "~";
+            }
+
+            buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
+
+            if row < window_size.rows - 1 {
+                buffer += "\r\n";
+            }
+        }
+
+        write!(io::stdout(), "{}", buffer).expect("Error writing to stdout during screen refresh");
+        flush_stdout();
     }
 }
