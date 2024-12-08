@@ -1,9 +1,3 @@
-use std::{
-    cmp::min,
-    fs::File,
-    io::{self, Write},
-};
-
 use crate::{
     globals::VERSION,
     input::{EditorKey, Key},
@@ -12,7 +6,11 @@ use crate::{
     utils::{flush_stdout, get_window_size},
     WindowSize,
 };
-use termion::input::TermRead;
+use std::{
+    cmp::min,
+    fs::File,
+    io::{self, BufRead, BufReader, Write},
+};
 use termios::Termios;
 
 #[derive(Clone, Copy)]
@@ -36,8 +34,7 @@ pub struct EditorInstance {
     original_termios: Termios,
     pub window_size: WindowSize,
     pub cursor_position: CursorPosition,
-    line_count: u32,
-    line: Option<Line>,
+    lines: Vec<Line>,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -50,21 +47,19 @@ impl EditorInstance {
             original_termios,
             window_size: get_window_size(),
             cursor_position: CursorPosition { x: 0, y: 0 },
-            line_count: 0,
-            line: None,
+            lines: vec![],
         }
     }
 
     pub fn open(&mut self, file_path: &str) {
-        let mut file = File::open(file_path).expect("Failed to open file at specified path");
+        let reader =
+            BufReader::new(File::open(file_path).expect("Failed to open file at specified path"));
 
-        if let Some(line) = file.read_line().expect("Failed to read line from file") {
-            self.line = Some(Line {
-                text: line.trim_end_matches(['\r', '\n']).to_string(),
+        for line in reader.lines() {
+            self.lines.push(Line {
+                text: line.expect(&format!("Failed to read line from file: {}", file_path)),
             });
-
-            self.line_count = 1;
-        };
+        }
     }
 
     pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
@@ -150,8 +145,8 @@ impl EditorInstance {
         let mut buffer = String::new();
 
         for row in 0..window_size.rows {
-            if row as u32 >= self.line_count {
-                if self.line_count == 0 && row == window_size.rows / 3 {
+            if row as usize >= self.lines.len() {
+                if self.lines.len() == 0 && row == window_size.rows / 3 {
                     let message = format!("Brendan's text editor --- version {VERSION}");
                     let message =
                         message[..min(window_size.columns as usize, message.len())].to_string();
@@ -172,12 +167,7 @@ impl EditorInstance {
                     buffer += "~";
                 }
             } else {
-                buffer += &match &self.line {
-                    Some(line) => {
-                        line.text[..min(window_size.columns as usize, line.text.len())].to_string()
-                    }
-                    None => "".to_string(),
-                };
+                buffer += &self.lines[row as usize].text;
             }
 
             buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
