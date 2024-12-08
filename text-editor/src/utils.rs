@@ -1,6 +1,6 @@
-use crate::editor_instance::{EditorInstance, WindowSize};
 use crate::globals::get_buffer_lock;
 use crate::output::move_cursor_to_top_left;
+use crate::WindowSize;
 use crate::{output::clear_display, terminal::disable_raw_mode};
 use signal_hook::consts::SIGWINCH;
 use signal_hook::iterator::Signals;
@@ -116,15 +116,14 @@ pub fn get_window_size() -> WindowSize {
     }
 }
 
-pub fn watch_for_window_size_change(editor_clone: Arc<RwLock<EditorInstance>>) -> () {
+pub fn watch_for_window_size_change(window_size_clone: Arc<RwLock<WindowSize>>) -> () {
     thread::spawn(move || {
         let mut signals = Signals::new(&[SIGWINCH]).expect("Failed to register SIGWINCH signal");
 
         for _ in signals.forever() {
-            editor_clone
+            *window_size_clone
                 .write()
-                .expect("Could not get write lock for editor")
-                .window_size = get_window_size();
+                .expect("Could not get write lock for window size") = get_window_size();
         }
     });
 }
