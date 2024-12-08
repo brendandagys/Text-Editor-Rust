@@ -1,4 +1,4 @@
-use crate::{editor_instance::EditorInstance, utils::flush_stdout, WindowSize};
+use crate::{editor_instance::EditorInstance, utils::flush_stdout};
 use std::io::{self, Write};
 
 pub fn move_cursor_to_top_left() -> () {
@@ -25,14 +25,15 @@ fn show_cursor() -> () {
     flush_stdout();
 }
 
-pub fn refresh_screen(editor_instance: &EditorInstance, window_size: WindowSize) -> () {
+pub fn refresh_screen(editor_instance: &mut EditorInstance) -> () {
     // Escape sequences begin with escape characters `\x1b` (27) and '['
     // Escape sequence commands take arguments that come before the command itself
     // Arguments are separated by a ';'
     // https://vt100.net/docs/vt100-ug/chapter3.html
     hide_cursor();
+    editor_instance.scroll();
     move_cursor_to_top_left();
-    editor_instance.draw_rows(window_size);
+    editor_instance.draw_rows();
     editor_instance.move_cursor_to_position();
     show_cursor();
 }

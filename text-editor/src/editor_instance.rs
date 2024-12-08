@@ -35,6 +35,7 @@ pub struct EditorInstance {
     pub window_size: WindowSize,
     pub cursor_position: CursorPosition,
     lines: Vec<Line>,
+    line_scrolled_to: u32,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -48,6 +49,7 @@ impl EditorInstance {
             window_size: get_window_size(),
             cursor_position: CursorPosition { x: 0, y: 0 },
             lines: vec![],
+            line_scrolled_to: 0,
         }
     }
 
@@ -72,7 +74,9 @@ impl EditorInstance {
                 }
             }
             CursorMovement::Down => {
-                self.cursor_position.y = min(self.cursor_position.y + 1, self.window_size.rows)
+                if (self.cursor_position.y as usize) < self.lines.len() {
+                    self.cursor_position.y += 1
+                }
             }
             CursorMovement::Up => {
                 self.cursor_position.y = if self.cursor_position.y > 0 {
@@ -131,7 +135,7 @@ impl EditorInstance {
         write!(
             io::stdout(),
             "\x1b[{};{}H",
-            self.cursor_position.y + 1,
+            self.cursor_position.y as u32 - self.line_scrolled_to + 1,
             self.cursor_position.x + 1
         )
         .expect("Error positioning cursor");
@@ -139,19 +143,31 @@ impl EditorInstance {
         flush_stdout();
     }
 
+    pub fn scroll(&mut self) -> () {
+        if (self.cursor_position.y as u32) < self.line_scrolled_to {
+            self.line_scrolled_to = self.cursor_position.y as u32;
+        }
+
+        if self.cursor_position.y as u32 >= self.line_scrolled_to + self.window_size.rows as u32 {
+            self.line_scrolled_to =
+                self.cursor_position.y as u32 - self.window_size.rows as u32 + 1;
+        }
+    }
+
     /// Uses a String as a buffer to store all lines, before calling `write` once
     /// Prints a welcome message in the middle of the screen using its row/column count
-    pub fn draw_rows(&self, window_size: WindowSize) -> () {
+    pub fn draw_rows(&self) -> () {
         let mut buffer = String::new();
 
-        for row in 0..window_size.rows {
-            if row as usize >= self.lines.len() {
-                if self.lines.len() == 0 && row == window_size.rows / 3 {
-                    let message = format!("Brendan's text editor --- version {VERSION}");
-                    let message =
-                        message[..min(window_size.columns as usize, message.len())].to_string();
+        for row in 0..self.window_size.rows {
+            let scrolled_to_row = row as u32 + self.line_scrolled_to;
 
-                    let mut padding = (window_size.columns - message.len() as u16) / 2;
+            if scrolled_to_row as usize >= self.lines.len() {
+                if self.lines.len() == 0 && row == self.window_size.rows / 3 {
+                    let message = format!("Brendan's text editor --- version {VERSION}");
+                    let message = &message[..min(self.window_size.columns as usize, message.len())];
+
+                    let mut padding = (self.window_size.columns - message.len() as u16) / 2;
 
                     if padding > 0 {
                         buffer += "~";
@@ -167,12 +183,13 @@ impl EditorInstance {
                     buffer += "~";
                 }
             } else {
-                buffer += &self.lines[row as usize].text;
+                let text = &self.lines[scrolled_to_row as usize].text;
+                buffer += &text[..min(self.window_size.columns as usize, text.len())];
             }
 
             buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
 
-            if row < window_size.rows - 1 {
+            if row < self.window_size.rows - 1 {
                 buffer += "\r\n";
             }
         }
