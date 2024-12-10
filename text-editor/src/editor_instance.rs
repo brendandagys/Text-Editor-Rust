@@ -7,7 +7,7 @@ use crate::{
     WindowSize,
 };
 use std::{
-    cmp::min,
+    cmp::{max, min},
     fs::File,
     io::{self, BufRead, BufReader, Write},
 };
@@ -36,6 +36,7 @@ pub struct EditorInstance {
     pub cursor_position: CursorPosition,
     lines: Vec<Line>,
     line_scrolled_to: u32,
+    column_scrolled_to: u16,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -50,6 +51,7 @@ impl EditorInstance {
             cursor_position: CursorPosition { x: 0, y: 0 },
             lines: vec![],
             line_scrolled_to: 0,
+            column_scrolled_to: 0,
         }
     }
 
@@ -65,17 +67,23 @@ impl EditorInstance {
     }
 
     pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
+        let current_line = if (self.cursor_position.y as usize) < self.lines.len() {
+            Some(&self.lines[self.cursor_position.y as usize])
+        } else {
+            None
+        };
+
         match direction {
             CursorMovement::Left => {
                 self.cursor_position.x = if self.cursor_position.x > 0 {
                     self.cursor_position.x - 1
                 } else {
                     0
-                }
+                };
             }
             CursorMovement::Down => {
                 if (self.cursor_position.y as usize) < self.lines.len() {
-                    self.cursor_position.y += 1
+                    self.cursor_position.y += 1;
                 }
             }
             CursorMovement::Up => {
@@ -83,12 +91,35 @@ impl EditorInstance {
                     self.cursor_position.y - 1
                 } else {
                     0
-                }
+                };
             }
             CursorMovement::Right => {
-                self.cursor_position.x = min(self.cursor_position.x + 1, self.window_size.columns)
+                if let Some(current_line) = current_line {
+                    if (self.cursor_position.x as usize) < current_line.text.len() {
+                        self.cursor_position.x += 1;
+                    }
+                }
             }
         }
+
+        let current_line_after_cursor_move = if (self.cursor_position.y as usize) < self.lines.len()
+        {
+            Some(&self.lines[self.cursor_position.y as usize])
+        } else {
+            None
+        };
+
+        let line_length = match current_line_after_cursor_move {
+            Some(line) => line.text.len(),
+            None => 0,
+        };
+
+        self.cursor_position.x = min(
+            self.cursor_position.x,
+            line_length
+                .try_into()
+                .expect("Unable to convert line length usize into a u16"),
+        );
     }
 
     pub fn process_key(&mut self, key: Key) -> () {
@@ -136,7 +167,7 @@ impl EditorInstance {
             io::stdout(),
             "\x1b[{};{}H",
             self.cursor_position.y as u32 - self.line_scrolled_to + 1,
-            self.cursor_position.x + 1
+            self.cursor_position.x - self.column_scrolled_to + 1
         )
         .expect("Error positioning cursor");
 
@@ -151,6 +182,14 @@ impl EditorInstance {
         if self.cursor_position.y as u32 >= self.line_scrolled_to + self.window_size.rows as u32 {
             self.line_scrolled_to =
                 self.cursor_position.y as u32 - self.window_size.rows as u32 + 1;
+        }
+
+        if self.cursor_position.x < self.column_scrolled_to {
+            self.column_scrolled_to = self.cursor_position.x;
+        }
+
+        if self.cursor_position.x >= self.column_scrolled_to + self.window_size.columns {
+            self.column_scrolled_to = self.cursor_position.x - self.window_size.columns + 1;
         }
     }
 
@@ -184,7 +223,14 @@ impl EditorInstance {
                 }
             } else {
                 let text = &self.lines[scrolled_to_row as usize].text;
-                buffer += &text[..min(self.window_size.columns as usize, text.len())];
+
+                let line_length = min(
+                    max(text.len() - self.column_scrolled_to as usize, 0),
+                    self.window_size.columns as usize,
+                );
+
+                buffer += &text[(self.column_scrolled_to as usize)
+                    ..((self.column_scrolled_to as usize) + line_length)];
             }
 
             buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
