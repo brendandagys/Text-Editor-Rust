@@ -97,6 +97,9 @@ impl EditorInstance {
                 if let Some(current_line) = current_line {
                     if (self.cursor_position.x as usize) < current_line.text.len() {
                         self.cursor_position.x += 1;
+                    } else if self.cursor_position.x as usize == current_line.text.len() {
+                        self.cursor_position.y += 1;
+                        self.cursor_position.x = 0;
                     }
                 }
             }
