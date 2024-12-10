@@ -75,11 +75,13 @@ impl EditorInstance {
 
         match direction {
             CursorMovement::Left => {
-                self.cursor_position.x = if self.cursor_position.x > 0 {
-                    self.cursor_position.x - 1
-                } else {
-                    0
-                };
+                if self.cursor_position.x > 0 {
+                    self.cursor_position.x -= 1;
+                } else if self.cursor_position.y > 0 {
+                    self.cursor_position.y -= 1;
+                    self.cursor_position.x =
+                        self.lines[self.cursor_position.y as usize].text.len() as u16;
+                }
             }
             CursorMovement::Down => {
                 if (self.cursor_position.y as usize) < self.lines.len() {
@@ -87,11 +89,9 @@ impl EditorInstance {
                 }
             }
             CursorMovement::Up => {
-                self.cursor_position.y = if self.cursor_position.y > 0 {
-                    self.cursor_position.y - 1
-                } else {
-                    0
-                };
+                if self.cursor_position.y > 0 {
+                    self.cursor_position.y -= 1;
+                }
             }
             CursorMovement::Right => {
                 if let Some(current_line) = current_line {
