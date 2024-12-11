@@ -7,7 +7,7 @@ use crate::{
     WindowSize,
 };
 use std::{
-    cmp::{max, min},
+    cmp::min,
     fs::File,
     io::{self, BufRead, BufReader, Write},
 };
@@ -106,7 +106,8 @@ impl EditorInstance {
                     self.cursor_position.y -= 1;
                     self.cursor_position.x = self.lines[self.cursor_position.y as usize]
                         .text
-                        .len()
+                        .chars()
+                        .count()
                         .try_into()
                         .expect("Unable to convert line length usize into a u16");
                 }
@@ -123,9 +124,9 @@ impl EditorInstance {
             }
             CursorMovement::Right => {
                 if let Some(current_line) = current_line {
-                    if (self.cursor_position.x as usize) < current_line.text.len() {
+                    if (self.cursor_position.x as usize) < current_line.text.chars().count() {
                         self.cursor_position.x += 1;
-                    } else if self.cursor_position.x as usize == current_line.text.len() {
+                    } else if self.cursor_position.x as usize == current_line.text.chars().count() {
                         self.cursor_position.y += 1;
                         self.cursor_position.x = 0;
                     }
@@ -141,7 +142,7 @@ impl EditorInstance {
         };
 
         let line_length = match current_line_after_cursor_move {
-            Some(line) => line.text.len(),
+            Some(line) => line.text.chars().count(),
             None => 0,
         };
 
@@ -257,9 +258,10 @@ impl EditorInstance {
 
             if scrolled_to_row as usize >= self.lines.len() {
                 if self.lines.len() == 0 && row == self.window_size.rows / 3 {
-                    let message = format!("Brendan's text editor --- version {VERSION}");
-                    let message = &message[..min(self.window_size.columns as usize, message.len())];
-                    let message_length: u16 = message.len().try_into().expect(
+                    let mut message = format!("Brendan's text editor --- version {VERSION}");
+                    message.truncate(self.window_size.columns as usize);
+
+                    let message_length: u16 = message.chars().count().try_into().expect(
                         "Could not convert welcome message length into a u16 during screen refresh",
                     );
 
@@ -281,13 +283,16 @@ impl EditorInstance {
             } else {
                 let line_content = &self.lines[scrolled_to_row as usize].render;
 
-                let line_length = min(
-                    max(line_content.len() - self.column_scrolled_to as usize, 0),
-                    self.window_size.columns as usize,
-                );
+                let start = self.column_scrolled_to as usize;
+                let end = start + self.window_size.columns as usize;
 
-                buffer += &line_content[(self.column_scrolled_to as usize)
-                    ..((self.column_scrolled_to as usize) + line_length)];
+                let num_characters = line_content.chars().count();
+
+                if num_characters > end {
+                    buffer += &line_content[start..end];
+                } else if num_characters > start {
+                    buffer += &line_content[start..];
+                }
             }
 
             buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])

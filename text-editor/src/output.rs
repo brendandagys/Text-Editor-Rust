@@ -30,6 +30,7 @@ pub fn refresh_screen(editor_instance: &mut EditorInstance) -> () {
     // Escape sequence commands take arguments that come before the command itself
     // Arguments are separated by a ';'
     // https://vt100.net/docs/vt100-ug/chapter3.html
+
     hide_cursor();
     editor_instance.scroll();
     move_cursor_to_top_left();
