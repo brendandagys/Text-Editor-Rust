@@ -183,7 +183,16 @@ impl EditorInstance {
             }
 
             Key::Custom(EditorKey::Home) => self.cursor_position.x = 0,
-            Key::Custom(EditorKey::End) => self.cursor_position.x = self.window_size.columns - 1,
+            Key::Custom(EditorKey::End) => {
+                if (self.cursor_position.y as usize) < self.lines.len() {
+                    self.cursor_position.x = self.lines[self.cursor_position.y as usize]
+                        .text
+                        .chars()
+                        .count()
+                        .try_into()
+                        .expect("Failed to convert current line length into x cursor position");
+                }
+            }
 
             Key::U8(b'p') => panic!("Manual panic!"),
             Key::U8(key) if key == ctrl_key('q') => {
