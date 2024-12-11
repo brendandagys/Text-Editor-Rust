@@ -68,7 +68,7 @@ fn get_cursor_position() -> WindowSize {
     let rows = parts
         .next()
         .expect("Response from Cursor Position Report could not be parsed")
-        .parse::<u16>()
+        .parse::<u32>()
         .expect("Failed to parse row into a u16");
 
     let columns = parts
@@ -110,7 +110,10 @@ pub fn get_window_size() -> WindowSize {
                 return get_window_size_fallback();
             }
 
-            WindowSize { rows, columns }
+            WindowSize {
+                rows: rows.into(),
+                columns,
+            }
         }
         Err(_) => get_window_size_fallback(),
     }
