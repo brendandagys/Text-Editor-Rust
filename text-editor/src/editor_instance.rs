@@ -1,5 +1,5 @@
 use crate::{
-    globals::VERSION,
+    globals::{TAB_SIZE, VERSION},
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left},
     terminal::disable_raw_mode,
@@ -17,6 +17,8 @@ use termios::Termios;
 pub struct CursorPosition {
     pub x: u16,
     pub y: u16,
+
+    render_x: u16, // Includes extra space from tabs
 }
 
 pub enum CursorMovement {
@@ -28,6 +30,7 @@ pub enum CursorMovement {
 
 struct Line {
     text: String,
+    render: String,
 }
 
 pub struct EditorInstance {
@@ -48,7 +51,11 @@ impl EditorInstance {
         EditorInstance {
             original_termios,
             window_size: get_window_size(),
-            cursor_position: CursorPosition { x: 0, y: 0 },
+            cursor_position: CursorPosition {
+                x: 0,
+                y: 0,
+                render_x: 0,
+            },
             lines: vec![],
             line_scrolled_to: 0,
             column_scrolled_to: 0,
@@ -60,9 +67,27 @@ impl EditorInstance {
             BufReader::new(File::open(file_path).expect("Failed to open file at specified path"));
 
         for line in reader.lines() {
-            self.lines.push(Line {
-                text: line.expect(&format!("Failed to read line from file: {}", file_path)),
-            });
+            let text = line.expect(&format!("Failed to read line from file: {}", file_path));
+
+            let mut render = String::new();
+            let mut render_index = 0;
+
+            for char in text.chars() {
+                if char == '\t' {
+                    render.push(char);
+                    render_index += 1;
+
+                    while render_index % TAB_SIZE != 0 {
+                        render.push(' ');
+                        render_index += 1;
+                    }
+                } else {
+                    render.push(char);
+                    render_index += 1;
+                }
+            }
+
+            self.lines.push(Line { text, render });
         }
     }
 
@@ -170,14 +195,34 @@ impl EditorInstance {
             io::stdout(),
             "\x1b[{};{}H",
             self.cursor_position.y as u32 - self.line_scrolled_to + 1,
-            self.cursor_position.x - self.column_scrolled_to + 1
+            self.cursor_position.render_x - self.column_scrolled_to + 1
         )
         .expect("Error positioning cursor");
 
         flush_stdout();
     }
 
+    fn cx_to_render_x(&self, cursor_x_position: u16) -> u16 {
+        (0..cursor_x_position).fold(0, |acc, x| {
+            let char = self.lines[self.line_scrolled_to as usize]
+                .text
+                .chars()
+                .nth(x as usize);
+
+            match char {
+                Some(char) if char == '\t' => acc + TAB_SIZE as u16 - (acc % TAB_SIZE as u16),
+                _ => acc + 1,
+            }
+        })
+    }
+
     pub fn scroll(&mut self) -> () {
+        self.cursor_position.render_x = if (self.cursor_position.y as usize) < self.lines.len() {
+            self.cx_to_render_x(self.cursor_position.x)
+        } else {
+            0
+        };
+
         if (self.cursor_position.y as u32) < self.line_scrolled_to {
             self.line_scrolled_to = self.cursor_position.y as u32;
         }
@@ -187,12 +232,12 @@ impl EditorInstance {
                 self.cursor_position.y as u32 - self.window_size.rows as u32 + 1;
         }
 
-        if self.cursor_position.x < self.column_scrolled_to {
-            self.column_scrolled_to = self.cursor_position.x;
+        if self.cursor_position.render_x < self.column_scrolled_to {
+            self.column_scrolled_to = self.cursor_position.render_x;
         }
 
-        if self.cursor_position.x >= self.column_scrolled_to + self.window_size.columns {
-            self.column_scrolled_to = self.cursor_position.x - self.window_size.columns + 1;
+        if self.cursor_position.render_x >= self.column_scrolled_to + self.window_size.columns {
+            self.column_scrolled_to = self.cursor_position.render_x - self.window_size.columns + 1;
         }
     }
 
@@ -225,14 +270,14 @@ impl EditorInstance {
                     buffer += "~";
                 }
             } else {
-                let text = &self.lines[scrolled_to_row as usize].text;
+                let line_content = &self.lines[scrolled_to_row as usize].render;
 
                 let line_length = min(
-                    max(text.len() - self.column_scrolled_to as usize, 0),
+                    max(line_content.len() - self.column_scrolled_to as usize, 0),
                     self.window_size.columns as usize,
                 );
 
-                buffer += &text[(self.column_scrolled_to as usize)
+                buffer += &line_content[(self.column_scrolled_to as usize)
                     ..((self.column_scrolled_to as usize) + line_length)];
             }
 
