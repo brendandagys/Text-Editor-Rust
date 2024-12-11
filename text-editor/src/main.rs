@@ -15,7 +15,7 @@ mod utils;
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct WindowSize {
-    pub rows: u16,
+    pub rows: u32,
     pub columns: u16,
 }
 

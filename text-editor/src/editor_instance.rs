@@ -16,7 +16,7 @@ use termios::Termios;
 #[derive(Clone, Copy)]
 pub struct CursorPosition {
     pub x: u16,
-    pub y: u16,
+    pub y: u32,
 
     render_x: u16, // Includes extra space from tabs
 }
@@ -104,8 +104,11 @@ impl EditorInstance {
                     self.cursor_position.x -= 1;
                 } else if self.cursor_position.y > 0 {
                     self.cursor_position.y -= 1;
-                    self.cursor_position.x =
-                        self.lines[self.cursor_position.y as usize].text.len() as u16;
+                    self.cursor_position.x = self.lines[self.cursor_position.y as usize]
+                        .text
+                        .len()
+                        .try_into()
+                        .expect("Unable to convert line length usize into a u16");
                 }
             }
             CursorMovement::Down => {
@@ -164,11 +167,15 @@ impl EditorInstance {
             }
 
             Key::Custom(EditorKey::PageUp) => {
+                self.cursor_position.y = self.line_scrolled_to;
+
                 for _ in 0..self.window_size.rows {
                     self.move_cursor(CursorMovement::Up);
                 }
             }
             Key::Custom(EditorKey::PageDown) => {
+                self.cursor_position.y = self.line_scrolled_to + self.window_size.rows - 1;
+
                 for _ in 0..self.window_size.rows {
                     self.move_cursor(CursorMovement::Down);
                 }
@@ -194,7 +201,7 @@ impl EditorInstance {
         write!(
             io::stdout(),
             "\x1b[{};{}H",
-            self.cursor_position.y as u32 - self.line_scrolled_to + 1,
+            self.cursor_position.y - self.line_scrolled_to + 1,
             self.cursor_position.render_x - self.column_scrolled_to + 1
         )
         .expect("Error positioning cursor");
@@ -223,13 +230,12 @@ impl EditorInstance {
             0
         };
 
-        if (self.cursor_position.y as u32) < self.line_scrolled_to {
-            self.line_scrolled_to = self.cursor_position.y as u32;
+        if self.cursor_position.y < self.line_scrolled_to {
+            self.line_scrolled_to = self.cursor_position.y;
         }
 
-        if self.cursor_position.y as u32 >= self.line_scrolled_to + self.window_size.rows as u32 {
-            self.line_scrolled_to =
-                self.cursor_position.y as u32 - self.window_size.rows as u32 + 1;
+        if self.cursor_position.y >= self.line_scrolled_to + self.window_size.rows {
+            self.line_scrolled_to = self.cursor_position.y - self.window_size.rows + 1;
         }
 
         if self.cursor_position.render_x < self.column_scrolled_to {
@@ -247,14 +253,17 @@ impl EditorInstance {
         let mut buffer = String::new();
 
         for row in 0..self.window_size.rows {
-            let scrolled_to_row = row as u32 + self.line_scrolled_to;
+            let scrolled_to_row = row + self.line_scrolled_to;
 
             if scrolled_to_row as usize >= self.lines.len() {
                 if self.lines.len() == 0 && row == self.window_size.rows / 3 {
                     let message = format!("Brendan's text editor --- version {VERSION}");
                     let message = &message[..min(self.window_size.columns as usize, message.len())];
+                    let message_length: u16 = message.len().try_into().expect(
+                        "Could not convert welcome message length into a u16 during screen refresh",
+                    );
 
-                    let mut padding = (self.window_size.columns - message.len() as u16) / 2;
+                    let mut padding = (self.window_size.columns - message_length) / 2;
 
                     if padding > 0 {
                         buffer += "~";
