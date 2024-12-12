@@ -109,6 +109,58 @@ impl EditorInstance {
         );
     }
 
+    pub fn process_key(&mut self, key: Key) -> () {
+        match key {
+            Key::U8(b'h') | Key::Custom(EditorKey::ArrowLeft) => {
+                self.move_cursor(CursorMovement::Left)
+            }
+            Key::U8(b'j') | Key::Custom(EditorKey::ArrowDown) => {
+                self.move_cursor(CursorMovement::Down)
+            }
+            Key::U8(b'k') | Key::Custom(EditorKey::ArrowUp) => self.move_cursor(CursorMovement::Up),
+            Key::U8(b'l') | Key::Custom(EditorKey::ArrowRight) => {
+                self.move_cursor(CursorMovement::Right)
+            }
+
+            Key::Custom(EditorKey::PageUp) => {
+                self.cursor_position.y = self.line_scrolled_to;
+
+                for _ in 0..self.window_size.rows {
+                    self.move_cursor(CursorMovement::Up);
+                }
+            }
+            Key::Custom(EditorKey::PageDown) => {
+                self.cursor_position.y = self.line_scrolled_to + self.window_size.rows - 1;
+
+                for _ in 0..self.window_size.rows {
+                    self.move_cursor(CursorMovement::Down);
+                }
+            }
+
+            Key::Custom(EditorKey::Home) => self.cursor_position.x = 0,
+            Key::Custom(EditorKey::End) => {
+                if (self.cursor_position.y as usize) < self.lines.len() {
+                    self.cursor_position.x = self.lines[self.cursor_position.y as usize]
+                        .text
+                        .chars()
+                        .count()
+                        .try_into()
+                        .expect("Failed to convert current line length into x cursor position");
+                }
+            }
+
+            Key::U8(b'p') => panic!("Manual panic!"),
+            Key::U8(key) if key == ctrl_key('q') => {
+                clear_display();
+                move_cursor_to_top_left();
+                disable_raw_mode(self.original_termios);
+
+                std::process::exit(0);
+            }
+            _ => {}
+        }
+    }
+
     pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
         let current_line = if (self.cursor_position.y as usize) < self.lines.len() {
             Some(&self.lines[self.cursor_position.y as usize])
@@ -170,58 +222,6 @@ impl EditorInstance {
                 .try_into()
                 .expect("Unable to convert line length usize into a u16"),
         );
-    }
-
-    pub fn process_key(&mut self, key: Key) -> () {
-        match key {
-            Key::U8(b'h') | Key::Custom(EditorKey::ArrowLeft) => {
-                self.move_cursor(CursorMovement::Left)
-            }
-            Key::U8(b'j') | Key::Custom(EditorKey::ArrowDown) => {
-                self.move_cursor(CursorMovement::Down)
-            }
-            Key::U8(b'k') | Key::Custom(EditorKey::ArrowUp) => self.move_cursor(CursorMovement::Up),
-            Key::U8(b'l') | Key::Custom(EditorKey::ArrowRight) => {
-                self.move_cursor(CursorMovement::Right)
-            }
-
-            Key::Custom(EditorKey::PageUp) => {
-                self.cursor_position.y = self.line_scrolled_to;
-
-                for _ in 0..self.window_size.rows {
-                    self.move_cursor(CursorMovement::Up);
-                }
-            }
-            Key::Custom(EditorKey::PageDown) => {
-                self.cursor_position.y = self.line_scrolled_to + self.window_size.rows - 1;
-
-                for _ in 0..self.window_size.rows {
-                    self.move_cursor(CursorMovement::Down);
-                }
-            }
-
-            Key::Custom(EditorKey::Home) => self.cursor_position.x = 0,
-            Key::Custom(EditorKey::End) => {
-                if (self.cursor_position.y as usize) < self.lines.len() {
-                    self.cursor_position.x = self.lines[self.cursor_position.y as usize]
-                        .text
-                        .chars()
-                        .count()
-                        .try_into()
-                        .expect("Failed to convert current line length into x cursor position");
-                }
-            }
-
-            Key::U8(b'p') => panic!("Manual panic!"),
-            Key::U8(key) if key == ctrl_key('q') => {
-                clear_display();
-                move_cursor_to_top_left();
-                disable_raw_mode(self.original_termios);
-
-                std::process::exit(0);
-            }
-            _ => {}
-        }
     }
 
     pub fn move_cursor_to_position(&self) -> () {
