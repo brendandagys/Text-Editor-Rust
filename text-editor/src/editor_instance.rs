@@ -40,6 +40,7 @@ pub struct EditorInstance {
     lines: Vec<Line>,
     line_scrolled_to: u32,
     column_scrolled_to: u16,
+    file_name: Option<String>,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -59,6 +60,7 @@ impl EditorInstance {
             lines: vec![],
             line_scrolled_to: 0,
             column_scrolled_to: 0,
+            file_name: None,
         }
     }
 
@@ -89,6 +91,14 @@ impl EditorInstance {
 
             self.lines.push(Line { text, render });
         }
+
+        self.file_name = Some(
+            file_path
+                .split('/')
+                .last()
+                .expect("Error retrieving file from provided file path")
+                .into(),
+        );
     }
 
     pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
@@ -305,13 +315,46 @@ impl EditorInstance {
             }
 
             buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
-
-            if row < self.window_size.rows - 1 {
-                buffer += "\r\n";
-            }
+            buffer += "\r\n";
         }
 
-        write!(io::stdout(), "{}", buffer).expect("Error writing to stdout during screen refresh");
+        write!(io::stdout(), "{}", buffer).expect("Error writing to stdout while drawing rows");
+        flush_stdout();
+    }
+
+    pub fn draw_status_bar(&self) -> () {
+        let mut buffer = String::new();
+
+        // Select Graphic Rendition (e.g. `<esc>[1;4;5;7m`)
+        // 1: Bold, 4: Underscore, 5: Blink, 7: Inverted colors, 0: Clear all (default)
+        buffer += "\x1b[7m";
+
+        let mut status_bar_content = format!(
+            " {:.20} - {} lines ",
+            self.file_name.as_ref().unwrap_or(&"[New File]".to_string()),
+            self.lines.len()
+        );
+
+        status_bar_content.truncate(self.window_size.columns as usize);
+
+        buffer += &status_bar_content;
+
+        let space_left = self.window_size.columns as usize - status_bar_content.chars().count();
+
+        let mut cursor_position_information =
+            format!("{}/{} ", self.cursor_position.y + 1, self.lines.len());
+
+        cursor_position_information.truncate(space_left);
+
+        let gap = space_left - cursor_position_information.chars().count();
+
+        buffer += &" ".repeat(gap);
+        buffer += &cursor_position_information;
+
+        buffer += "\x1b[m";
+
+        write!(io::stdout(), "{}", buffer)
+            .expect("Error writing to stdout while drawing status bar");
         flush_stdout();
     }
 }
