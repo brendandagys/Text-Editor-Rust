@@ -72,30 +72,35 @@ impl EditorInstance {
         }
     }
 
+    fn get_render_text_from_text(text: &str) -> String {
+        let mut render = String::new();
+        let mut render_index = 0;
+
+        for char in text.chars() {
+            if char == '\t' {
+                render.push(char);
+                render_index += 1;
+
+                while render_index % TAB_SIZE != 0 {
+                    render.push(' ');
+                    render_index += 1;
+                }
+            } else {
+                render.push(char);
+                render_index += 1;
+            }
+        }
+
+        render
+    }
+
     pub fn open(&mut self, file_path: &str) {
         let reader =
             BufReader::new(File::open(file_path).expect("Failed to open file at specified path"));
 
         for line in reader.lines() {
             let text = line.expect(&format!("Failed to read line from file: {}", file_path));
-
-            let mut render = String::new();
-            let mut render_index = 0;
-
-            for char in text.chars() {
-                if char == '\t' {
-                    render.push(char);
-                    render_index += 1;
-
-                    while render_index % TAB_SIZE != 0 {
-                        render.push(' ');
-                        render_index += 1;
-                    }
-                } else {
-                    render.push(char);
-                    render_index += 1;
-                }
-            }
+            let render = EditorInstance::get_render_text_from_text(&text);
 
             self.lines.push(Line { text, render });
         }
@@ -111,16 +116,10 @@ impl EditorInstance {
 
     pub fn process_key(&mut self, key: Key) -> () {
         match key {
-            Key::U8(b'h') | Key::Custom(EditorKey::ArrowLeft) => {
-                self.move_cursor(CursorMovement::Left)
-            }
-            Key::U8(b'j') | Key::Custom(EditorKey::ArrowDown) => {
-                self.move_cursor(CursorMovement::Down)
-            }
-            Key::U8(b'k') | Key::Custom(EditorKey::ArrowUp) => self.move_cursor(CursorMovement::Up),
-            Key::U8(b'l') | Key::Custom(EditorKey::ArrowRight) => {
-                self.move_cursor(CursorMovement::Right)
-            }
+            Key::Custom(EditorKey::ArrowLeft) => self.move_cursor(CursorMovement::Left),
+            Key::Custom(EditorKey::ArrowDown) => self.move_cursor(CursorMovement::Down),
+            Key::Custom(EditorKey::ArrowUp) => self.move_cursor(CursorMovement::Up),
+            Key::Custom(EditorKey::ArrowRight) => self.move_cursor(CursorMovement::Right),
 
             Key::Custom(EditorKey::PageUp) => {
                 self.cursor_position.y = self.line_scrolled_to;
@@ -157,7 +156,11 @@ impl EditorInstance {
 
                 std::process::exit(0);
             }
-            _ => {}
+            _ => {
+                if let Key::U8(key) = key {
+                    self.insert_character(key as char);
+                }
+            }
         }
     }
 
@@ -273,6 +276,30 @@ impl EditorInstance {
         if self.cursor_position.render_x >= self.column_scrolled_to + self.window_size.columns {
             self.column_scrolled_to = self.cursor_position.render_x - self.window_size.columns + 1;
         }
+    }
+
+    fn insert_character_into_line(line: &mut Line, index: usize, character: char) -> () {
+        line.text
+            .insert(min(index, line.text.chars().count()), character);
+
+        line.render = EditorInstance::get_render_text_from_text(&line.text);
+    }
+
+    fn insert_character(&mut self, character: char) -> () {
+        if self.cursor_position.y as usize == self.lines.len() {
+            self.lines.push(Line {
+                text: String::new(),
+                render: String::new(),
+            });
+        }
+
+        EditorInstance::insert_character_into_line(
+            &mut self.lines[self.cursor_position.y as usize],
+            self.cursor_position.x as usize,
+            character,
+        );
+
+        self.cursor_position.x += 1;
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
