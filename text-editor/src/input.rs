@@ -3,10 +3,11 @@ use std::io::{self, Read};
 
 #[derive(PartialEq)]
 pub enum EditorKey {
+    Backspace = 127,
     ArrowLeft = 1000,
-    ArrowDown,
-    ArrowUp,
     ArrowRight,
+    ArrowUp,
+    ArrowDown,
     Delete,
     Home,
     End,

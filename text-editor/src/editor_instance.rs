@@ -116,10 +116,29 @@ impl EditorInstance {
 
     pub fn process_key(&mut self, key: Key) -> () {
         match key {
+            Key::U8(b'\r') => {} // Enter
+
             Key::Custom(EditorKey::ArrowLeft) => self.move_cursor(CursorMovement::Left),
             Key::Custom(EditorKey::ArrowDown) => self.move_cursor(CursorMovement::Down),
             Key::Custom(EditorKey::ArrowUp) => self.move_cursor(CursorMovement::Up),
             Key::Custom(EditorKey::ArrowRight) => self.move_cursor(CursorMovement::Right),
+
+            Key::Custom(EditorKey::Home) => self.cursor_position.x = 0,
+            Key::Custom(EditorKey::End) => {
+                if (self.cursor_position.y as usize) < self.lines.len() {
+                    self.cursor_position.x = self.lines[self.cursor_position.y as usize]
+                        .text
+                        .chars()
+                        .count()
+                        .try_into()
+                        .expect("Failed to convert current line length into x cursor position");
+                }
+            }
+
+            // Backspace: historically sent `8`; now sends `127`
+            // Delete: historically sent `127`; now sends `<esc>[3~`
+            Key::Custom(EditorKey::Backspace) | Key::Custom(EditorKey::Delete) => {}
+            Key::U8(key) if key == ctrl_key('h') => {} // `8`
 
             Key::Custom(EditorKey::PageUp) => {
                 self.cursor_position.y = self.line_scrolled_to;
@@ -136,17 +155,9 @@ impl EditorInstance {
                 }
             }
 
-            Key::Custom(EditorKey::Home) => self.cursor_position.x = 0,
-            Key::Custom(EditorKey::End) => {
-                if (self.cursor_position.y as usize) < self.lines.len() {
-                    self.cursor_position.x = self.lines[self.cursor_position.y as usize]
-                        .text
-                        .chars()
-                        .count()
-                        .try_into()
-                        .expect("Failed to convert current line length into x cursor position");
-                }
-            }
+            // Ctrl-L typically refreshes terminal screen; we do so after each key-press
+            // We ignore escapes because there are many key escape sequences we don't handle (e.g. F1-F12)
+            Key::U8(key) if key == ctrl_key('l') || key == b'\x1b' => {}
 
             Key::U8(b'p') => panic!("Manual panic!"),
             Key::U8(key) if key == ctrl_key('q') => {
