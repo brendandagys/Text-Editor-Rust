@@ -36,6 +36,7 @@ pub fn refresh_screen(editor_instance: &mut EditorInstance) -> () {
     move_cursor_to_top_left();
     editor_instance.draw_rows();
     editor_instance.draw_status_bar();
+    editor_instance.draw_status_message_bar();
     editor_instance.move_cursor_to_position();
     show_cursor();
 }

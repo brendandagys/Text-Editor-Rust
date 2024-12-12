@@ -10,6 +10,7 @@ use std::{
     cmp::min,
     fs::File,
     io::{self, BufRead, BufReader, Write},
+    time::Instant,
 };
 use termios::Termios;
 
@@ -33,6 +34,11 @@ struct Line {
     render: String,
 }
 
+struct StatusMessage {
+    message: String,
+    time_set: Instant,
+}
+
 pub struct EditorInstance {
     original_termios: Termios,
     pub window_size: WindowSize,
@@ -41,6 +47,7 @@ pub struct EditorInstance {
     line_scrolled_to: u32,
     column_scrolled_to: u16,
     file_name: Option<String>,
+    status_message: Option<StatusMessage>,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -61,6 +68,7 @@ impl EditorInstance {
             line_scrolled_to: 0,
             column_scrolled_to: 0,
             file_name: None,
+            status_message: None,
         }
     }
 
@@ -352,9 +360,34 @@ impl EditorInstance {
         buffer += &cursor_position_information;
 
         buffer += "\x1b[m";
+        buffer += "\r\n"; // New line for status message
 
         write!(io::stdout(), "{}", buffer)
             .expect("Error writing to stdout while drawing status bar");
         flush_stdout();
+    }
+
+    pub fn set_status_message(&mut self, message: String) -> () {
+        self.status_message = Some(StatusMessage {
+            message,
+            time_set: Instant::now(),
+        });
+    }
+
+    pub fn draw_status_message_bar(&self) -> () {
+        if let Some(status_message) = &self.status_message {
+            if status_message.time_set.elapsed().as_secs() < 5 {
+                let mut buffer = "\x1b[K".to_string(); // Erase In Line (2: whole, 1: to left, 0: to right [default])
+
+                let mut message = format!(" {} ", status_message.message.clone());
+                message.truncate(self.window_size.columns as usize);
+
+                buffer += &message;
+
+                write!(io::stdout(), "{}", buffer)
+                    .expect("Error writing to stdout while drawing status message bar");
+                flush_stdout();
+            }
+        }
     }
 }
