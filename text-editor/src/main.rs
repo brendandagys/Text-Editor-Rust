@@ -36,6 +36,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         active_editor.open(&args.collect::<Vec<String>>()[1]);
     }
 
+    active_editor.set_status_message("HELP: Ctrl-Q = quit".to_string());
+
     loop {
         let window_size = *window_size
             .read()

@@ -111,7 +111,7 @@ pub fn get_window_size() -> WindowSize {
             }
 
             WindowSize {
-                rows: (rows - 1).into(), // Subtract 1 for status bar
+                rows: (rows - 2).into(), // Subtract 2 for status bar and status message
                 columns,
             }
         }
