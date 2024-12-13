@@ -21,6 +21,10 @@ pub fn debug_input(key: u8) {
     }
 }
 
+pub fn ctrl_key(k: char) -> u8 {
+    (k as u8) & 0x1f // Ctrl key strips bits 5 and 6 from 7-bit ASCII
+}
+
 pub fn set_panic_hook(original_termios: Termios) -> () {
     let default_panic_hook = panic::take_hook();
 
