@@ -1,5 +1,5 @@
 use crate::{
-    globals::{TAB_SIZE, VERSION},
+    globals::{QUIT_CONFIRMATION_COUNT, TAB_SIZE, VERSION},
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left},
     terminal::disable_raw_mode,
@@ -51,6 +51,7 @@ pub struct EditorInstance {
     file_name: Option<String>,
     status_message: Option<StatusMessage>,
     edited: bool,
+    quit_confirmations: u8,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -74,6 +75,7 @@ impl EditorInstance {
             file_name: None,
             status_message: None,
             edited: false,
+            quit_confirmations: 0,
         }
     }
 
@@ -223,6 +225,24 @@ impl EditorInstance {
             }
 
             Key::U8(key) if key == ctrl_key('q') => {
+                if self.edited && self.quit_confirmations < QUIT_CONFIRMATION_COUNT {
+                    let confirmations_remaining = QUIT_CONFIRMATION_COUNT - self.quit_confirmations;
+
+                    self.set_status_message(&format!(
+                        "WARNING: File has unsaved changes! Press Ctrl-Q {} more time{} to quit.",
+                        confirmations_remaining,
+                        if confirmations_remaining == 1 {
+                            ""
+                        } else {
+                            "s"
+                        }
+                    ));
+
+                    self.quit_confirmations += 1;
+
+                    return;
+                }
+
                 clear_display();
                 move_cursor_to_top_left();
                 disable_raw_mode(self.original_termios);
@@ -235,6 +255,8 @@ impl EditorInstance {
                 }
             }
         }
+
+        self.quit_confirmations = 0;
     }
 
     pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
