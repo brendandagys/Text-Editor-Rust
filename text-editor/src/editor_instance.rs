@@ -399,23 +399,57 @@ impl EditorInstance {
         self.edited = true;
     }
 
+    fn append_string_to_line(line: &mut Line, string: &str) -> () {
+        line.text += string;
+        line.render = EditorInstance::get_render_text_from_text(&line.text);
+    }
+
     fn delete_character_from_line(line: &mut Line, index: usize) -> () {
         line.text.remove(index);
         line.render = EditorInstance::get_render_text_from_text(&line.text);
     }
 
     fn delete_character(&mut self) -> () {
-        if self.cursor_position.y as usize == self.lines.len() || self.cursor_position.x == 0 {
+        if self.cursor_position.y as usize == self.lines.len()
+            || (self.cursor_position.x == 0 && self.cursor_position.y == 0)
+        {
             return;
         }
 
-        EditorInstance::delete_character_from_line(
-            &mut self.lines[self.cursor_position.y as usize],
-            (self.cursor_position.x - 1) as usize,
-        );
+        if self.cursor_position.x > 0 {
+            EditorInstance::delete_character_from_line(
+                &mut self.lines[self.cursor_position.y as usize],
+                (self.cursor_position.x - 1) as usize,
+            );
 
-        self.cursor_position.x -= 1;
+            self.cursor_position.x -= 1;
+        } else {
+            self.cursor_position.x = self.lines[(self.cursor_position.y - 1) as usize]
+                .text
+                .chars()
+                .count()
+                .try_into()
+                .expect("Could not convert line index usize into cursor x-position u16");
+
+            let string_to_append = self.lines[self.cursor_position.y as usize].text.clone();
+
+            EditorInstance::append_string_to_line(
+                &mut self.lines[(self.cursor_position.y - 1) as usize],
+                &string_to_append,
+            );
+
+            self.delete_row(self.cursor_position.y as usize);
+            self.cursor_position.y -= 1;
+        }
+
         self.edited = true;
+    }
+
+    fn delete_row(&mut self, index: usize) -> () {
+        if index < self.lines.len() {
+            self.lines.remove(index);
+            self.edited = true;
+        }
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
