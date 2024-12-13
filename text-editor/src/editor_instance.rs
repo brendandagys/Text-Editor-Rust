@@ -50,6 +50,7 @@ pub struct EditorInstance {
     file_path: Option<String>,
     file_name: Option<String>,
     status_message: Option<StatusMessage>,
+    edited: bool,
 }
 
 fn ctrl_key(k: char) -> u8 {
@@ -72,6 +73,7 @@ impl EditorInstance {
             file_path: None,
             file_name: None,
             status_message: None,
+            edited: false,
         }
     }
 
@@ -161,7 +163,8 @@ impl EditorInstance {
 
             match file.write_all(content.as_bytes()) {
                 Ok(_) => {
-                    self.set_status_message(&format!("{} bytes written to disk", content.len()))
+                    self.set_status_message(&format!("{} bytes written to disk", content.len()));
+                    self.edited = false;
                 }
                 Err(e) => {
                     self.set_status_message(&format!("Failed to write to {file_path}: {:?}", e))
@@ -219,7 +222,6 @@ impl EditorInstance {
                 self.save();
             }
 
-            Key::U8(b'p') => panic!("Manual panic!"),
             Key::U8(key) if key == ctrl_key('q') => {
                 clear_display();
                 move_cursor_to_top_left();
@@ -371,6 +373,7 @@ impl EditorInstance {
         );
 
         self.cursor_position.x += 1;
+        self.edited = true;
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
@@ -436,9 +439,10 @@ impl EditorInstance {
         buffer += "\x1b[7m";
 
         let mut status_bar_content = format!(
-            " {:.20} - {} lines ",
+            " {:.20} - {} lines{} ",
             self.file_name.as_ref().unwrap_or(&"[New File]".to_string()),
-            self.lines.len()
+            self.lines.len(),
+            if self.edited { " (modified)" } else { "" }
         );
 
         status_bar_content.truncate(self.window_size.columns as usize);
