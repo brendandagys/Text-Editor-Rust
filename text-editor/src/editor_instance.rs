@@ -3,13 +3,14 @@ use crate::{
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left},
     terminal::disable_raw_mode,
-    utils::{flush_stdout, get_window_size},
+    utils::{flush_stdout, get_window_size, lines_to_string},
     WindowSize,
 };
 use std::{
     cmp::min,
-    fs::File,
+    fs::{File, OpenOptions},
     io::{self, BufRead, BufReader, Write},
+    os::unix::fs::OpenOptionsExt,
     time::Instant,
 };
 use termios::Termios;
@@ -29,8 +30,8 @@ pub enum CursorMovement {
     Right,
 }
 
-struct Line {
-    text: String,
+pub struct Line {
+    pub text: String,
     render: String,
 }
 
@@ -114,6 +115,31 @@ impl EditorInstance {
         );
     }
 
+    fn save(&self) -> () {
+        if let Some(file_name) = &self.file_name {
+            let mut file = OpenOptions::new()
+                .read(true)
+                .write(true)
+                .create(true)
+                .mode(0o644) // Owner R/W; others R
+                .open(file_name)
+                .expect(&format!("Failed to open {file_name} for saving"));
+
+            let content = lines_to_string(&self.lines);
+
+            file.set_len(
+                content
+                    .len()
+                    .try_into()
+                    .expect("Failed to convert content length from a usize to u64"),
+            )
+            .expect(&format!("Failed to truncate {file_name} to new length"));
+
+            file.write_all(content.as_bytes())
+                .expect(&format!("Failed to write to {file_name}"));
+        }
+    }
+
     pub fn process_key(&mut self, key: Key) -> () {
         match key {
             Key::U8(b'\r') => {} // Enter
@@ -158,6 +184,10 @@ impl EditorInstance {
             // Ctrl-L typically refreshes terminal screen; we do so after each key-press
             // We ignore escapes because there are many key escape sequences we don't handle (e.g. F1-F12)
             Key::U8(key) if key == ctrl_key('l') || key == b'\x1b' => {}
+
+            Key::U8(key) if key == ctrl_key('s') => {
+                self.save();
+            }
 
             Key::U8(b'p') => panic!("Manual panic!"),
             Key::U8(key) if key == ctrl_key('q') => {

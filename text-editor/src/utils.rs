@@ -1,3 +1,4 @@
+use crate::editor_instance::Line;
 use crate::globals::get_buffer_lock;
 use crate::output::move_cursor_to_top_left;
 use crate::WindowSize;
@@ -133,4 +134,15 @@ pub fn watch_for_window_size_change(window_size_clone: Arc<RwLock<WindowSize>>) 
 
 pub fn flush_stdout() -> () {
     io::stdout().flush().expect("Failed to flush stdout");
+}
+
+pub fn lines_to_string(lines: &Vec<Line>) -> String {
+    let mut string = String::new();
+
+    for line in lines {
+        string += &line.text;
+        string += "\n";
+    }
+
+    string
 }
