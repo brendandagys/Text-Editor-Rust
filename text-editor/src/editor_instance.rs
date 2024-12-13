@@ -415,6 +415,7 @@ impl EditorInstance {
         );
 
         self.cursor_position.x -= 1;
+        self.edited = true;
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
