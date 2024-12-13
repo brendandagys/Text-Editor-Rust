@@ -47,6 +47,7 @@ pub struct EditorInstance {
     lines: Vec<Line>,
     line_scrolled_to: u32,
     column_scrolled_to: u16,
+    file_path: Option<String>,
     file_name: Option<String>,
     status_message: Option<StatusMessage>,
 }
@@ -68,6 +69,7 @@ impl EditorInstance {
             lines: vec![],
             line_scrolled_to: 0,
             column_scrolled_to: 0,
+            file_path: None,
             file_name: None,
             status_message: None,
         }
@@ -106,6 +108,8 @@ impl EditorInstance {
             self.lines.push(Line { text, render });
         }
 
+        self.file_path = Some(file_path.to_string());
+
         self.file_name = Some(
             file_path
                 .split('/')
@@ -115,28 +119,54 @@ impl EditorInstance {
         );
     }
 
-    fn save(&self) -> () {
-        if let Some(file_name) = &self.file_name {
-            let mut file = OpenOptions::new()
+    fn save(&mut self) -> () {
+        if let Some(file_path) = &self.file_path {
+            let mut file = match OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
                 .mode(0o644) // Owner R/W; others R
-                .open(file_name)
-                .expect(&format!("Failed to open {file_name} for saving"));
+                .open(file_path)
+            {
+                Ok(file) => file,
+                Err(e) => {
+                    self.set_status_message(&format!(
+                        "Failed to open {file_path} for saving: {:?}",
+                        e
+                    ));
+                    return;
+                }
+            };
 
             let content = lines_to_string(&self.lines);
 
-            file.set_len(
-                content
-                    .len()
-                    .try_into()
-                    .expect("Failed to convert content length from a usize to u64"),
-            )
-            .expect(&format!("Failed to truncate {file_name} to new length"));
+            let content_length: u64 = match content.len().try_into() {
+                Ok(length) => length,
+                Err(e) => {
+                    self.set_status_message(&format!(
+                        "Failed to convert content length from usize to u64: {:?}",
+                        e
+                    ));
+                    return;
+                }
+            };
 
-            file.write_all(content.as_bytes())
-                .expect(&format!("Failed to write to {file_name}"));
+            if let Err(e) = file.set_len(content_length) {
+                self.set_status_message(&format!(
+                    "Failed to truncate {file_path} to new length: {:?}",
+                    e
+                ));
+                return;
+            }
+
+            match file.write_all(content.as_bytes()) {
+                Ok(_) => {
+                    self.set_status_message(&format!("{} bytes written to disk", content.len()))
+                }
+                Err(e) => {
+                    self.set_status_message(&format!("Failed to write to {file_path}: {:?}", e))
+                }
+            }
         }
     }
 
@@ -435,9 +465,9 @@ impl EditorInstance {
         flush_stdout();
     }
 
-    pub fn set_status_message(&mut self, message: String) -> () {
+    pub fn set_status_message(&mut self, message: &str) -> () {
         self.status_message = Some(StatusMessage {
-            message,
+            message: message.to_string(),
             time_set: Instant::now(),
         });
     }
