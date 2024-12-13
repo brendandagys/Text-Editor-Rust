@@ -476,20 +476,20 @@ impl EditorInstance {
         });
     }
 
-    pub fn draw_status_message_bar(&self) -> () {
+    pub fn draw_status_message_bar(&mut self) -> () {
+        let mut buffer = "\x1b[K".to_string(); // Erase In Line (2: whole, 1: to left, 0: to right [default])
+
         if let Some(status_message) = &self.status_message {
             if status_message.time_set.elapsed().as_secs() < 5 {
-                let mut buffer = "\x1b[K".to_string(); // Erase In Line (2: whole, 1: to left, 0: to right [default])
-
                 let mut message = format!(" {} ", status_message.message.clone());
                 message.truncate(self.window_size.columns as usize);
 
                 buffer += &message;
-
-                write!(io::stdout(), "{}", buffer)
-                    .expect("Error writing to stdout while drawing status message bar");
-                flush_stdout();
             }
         }
+
+        write!(io::stdout(), "{buffer}")
+            .expect("Error writing to stdout while drawing status message bar");
+        flush_stdout();
     }
 }
