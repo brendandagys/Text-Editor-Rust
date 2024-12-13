@@ -3,7 +3,7 @@ use crate::{
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left},
     terminal::disable_raw_mode,
-    utils::{flush_stdout, get_window_size, lines_to_string},
+    utils::{ctrl_key, flush_stdout, get_window_size, lines_to_string},
     WindowSize,
 };
 use std::{
@@ -52,10 +52,6 @@ pub struct EditorInstance {
     status_message: Option<StatusMessage>,
     edited: bool,
     quit_confirmations: u8,
-}
-
-fn ctrl_key(k: char) -> u8 {
-    (k as u8) & 0x1f // Ctrl key strips bits 5 and 6 from 7-bit ASCII
 }
 
 impl EditorInstance {
@@ -198,8 +194,13 @@ impl EditorInstance {
 
             // Backspace: historically sent `8`; now sends `127`
             // Delete: historically sent `127`; now sends `<esc>[3~`
-            Key::Custom(EditorKey::Backspace) | Key::Custom(EditorKey::Delete) => {}
-            Key::U8(key) if key == ctrl_key('h') => {} // `8`
+            Key::Custom(EditorKey::Backspace) | Key::Custom(EditorKey::Delete) => {
+                if key == Key::Custom(EditorKey::Delete) {
+                    self.move_cursor(CursorMovement::Right);
+                }
+
+                self.delete_character();
+            }
 
             Key::Custom(EditorKey::PageUp) => {
                 self.cursor_position.y = self.line_scrolled_to;
@@ -396,6 +397,24 @@ impl EditorInstance {
 
         self.cursor_position.x += 1;
         self.edited = true;
+    }
+
+    fn delete_character_from_line(line: &mut Line, index: usize) -> () {
+        line.text.remove(index);
+        line.render = EditorInstance::get_render_text_from_text(&line.text);
+    }
+
+    fn delete_character(&mut self) -> () {
+        if self.cursor_position.y as usize == self.lines.len() || self.cursor_position.x == 0 {
+            return;
+        }
+
+        EditorInstance::delete_character_from_line(
+            &mut self.lines[self.cursor_position.y as usize],
+            (self.cursor_position.x - 1) as usize,
+        );
+
+        self.cursor_position.x -= 1;
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once

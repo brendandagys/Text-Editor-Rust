@@ -1,9 +1,8 @@
-use crate::{editor_instance::EditorInstance, globals::get_buffer_lock};
+use crate::{editor_instance::EditorInstance, globals::get_buffer_lock, utils::ctrl_key};
 use std::io::{self, Read};
 
 #[derive(PartialEq)]
 pub enum EditorKey {
-    Backspace = 127,
     ArrowLeft = 1000,
     ArrowRight,
     ArrowUp,
@@ -13,6 +12,7 @@ pub enum EditorKey {
     End,
     PageUp,
     PageDown,
+    Backspace,
 }
 
 #[derive(PartialEq)]
@@ -87,6 +87,8 @@ fn read_key_input() -> Option<Key> {
                     _ => Some(esc),
                 }
             }
+            127 => Some(Key::Custom(EditorKey::Backspace)),
+            key if key == ctrl_key('h') => Some(Key::Custom(EditorKey::Backspace)), // `8`
             _ => Some(Key::U8(key)),
         },
         None => None,
