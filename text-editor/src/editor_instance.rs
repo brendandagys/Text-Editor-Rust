@@ -231,6 +231,8 @@ impl EditorInstance {
                 self.save();
             }
 
+            Key::U8(key) if key == ctrl_key('f') => self.prompt_and_find_text(),
+
             Key::U8(key) if key == ctrl_key('q') => {
                 if self.edited && self.quit_confirmations < QUIT_CONFIRMATION_COUNT {
                     let confirmations_remaining = QUIT_CONFIRMATION_COUNT - self.quit_confirmations;
@@ -342,9 +344,9 @@ impl EditorInstance {
         flush_stdout();
     }
 
-    fn cx_to_render_x(&self, cursor_x_position: u16) -> u16 {
+    fn cursor_x_to_render_x(&self, cursor_x_position: u16) -> u16 {
         (0..cursor_x_position).fold(0, |acc, x| {
-            let char = self.lines[self.line_scrolled_to as usize]
+            let char = self.lines[self.cursor_position.y as usize]
                 .text
                 .chars()
                 .nth(x as usize);
@@ -356,9 +358,42 @@ impl EditorInstance {
         })
     }
 
+    fn render_x_to_cursor_x(&self, cursor_render_x_position: u16) -> u16 {
+        let mut calculated_render_x_position = 0;
+        let mut calculated_x_position = 0;
+
+        while (calculated_x_position as usize)
+            < self.lines[self.cursor_position.y as usize]
+                .text
+                .chars()
+                .count()
+        {
+            let char = self.lines[self.cursor_position.y as usize]
+                .text
+                .chars()
+                .nth(calculated_x_position as usize);
+
+            match char {
+                Some(char) if char == '\t' => {
+                    calculated_render_x_position +=
+                        TAB_SIZE as u16 - (calculated_render_x_position % TAB_SIZE as u16)
+                }
+                _ => calculated_render_x_position += 1,
+            }
+
+            if calculated_render_x_position > cursor_render_x_position {
+                return calculated_x_position as u16;
+            }
+
+            calculated_x_position += 1;
+        }
+
+        return calculated_x_position;
+    }
+
     pub fn scroll(&mut self) -> () {
         self.cursor_position.render_x = if (self.cursor_position.y as usize) < self.lines.len() {
-            self.cx_to_render_x(self.cursor_position.x)
+            self.cursor_x_to_render_x(self.cursor_position.x)
         } else {
             0
         };
@@ -486,6 +521,32 @@ impl EditorInstance {
         self.cursor_position.x = 0;
 
         self.edited = true;
+    }
+
+    fn prompt_and_find_text(&mut self) -> () {
+        if let Some(query) = prompt_user(self, "Search (ESC to abort): ") {
+            if let Some((matched_line_index, line)) = self
+                .lines
+                .iter()
+                .enumerate()
+                .find(|(_, line)| line.render.contains(&query))
+            {
+                self.cursor_position.y = matched_line_index.try_into().expect(
+                    "Could not convert matched line index usize into cursor y-position u32",
+                );
+
+                self.cursor_position.x =
+                    self.render_x_to_cursor_x(line.render.find(&query).unwrap().try_into().expect(
+                        "Could not convert matched line index usize into cursor x-position u16",
+                    ));
+
+                self.line_scrolled_to = self
+                    .lines
+                    .len()
+                    .try_into()
+                    .expect("Could not convert line length usize into u32");
+            }
+        }
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
