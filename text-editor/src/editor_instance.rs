@@ -173,7 +173,7 @@ impl EditorInstance {
 
     pub fn process_key(&mut self, key: Key) -> () {
         match key {
-            Key::U8(b'\r') => {} // Enter
+            Key::U8(b'\r') => self.insert_line(), // Enter
 
             Key::Custom(EditorKey::ArrowLeft) => self.move_cursor(CursorMovement::Left),
             Key::Custom(EditorKey::ArrowDown) => self.move_cursor(CursorMovement::Down),
@@ -438,18 +438,48 @@ impl EditorInstance {
                 &string_to_append,
             );
 
-            self.delete_row(self.cursor_position.y as usize);
+            self.lines.remove(self.cursor_position.y as usize);
             self.cursor_position.y -= 1;
         }
 
         self.edited = true;
     }
 
-    fn delete_row(&mut self, index: usize) -> () {
-        if index < self.lines.len() {
-            self.lines.remove(index);
-            self.edited = true;
+    fn insert_line(&mut self) -> () {
+        if self.cursor_position.x == 0 {
+            self.lines.insert(
+                self.cursor_position.y as usize,
+                Line {
+                    text: String::new(),
+                    render: String::new(),
+                },
+            );
+        } else {
+            let current_line = &mut self.lines[self.cursor_position.y as usize];
+
+            let new_next_line_text =
+                current_line.text[self.cursor_position.x as usize..].to_string();
+
+            let new_next_line_render_text =
+                EditorInstance::get_render_text_from_text(&new_next_line_text);
+
+            current_line.text.truncate(self.cursor_position.x as usize);
+
+            current_line.render = EditorInstance::get_render_text_from_text(&current_line.text);
+
+            self.lines.insert(
+                self.cursor_position.y as usize + 1,
+                Line {
+                    text: new_next_line_text,
+                    render: new_next_line_render_text,
+                },
+            );
         }
+
+        self.cursor_position.y += 1;
+        self.cursor_position.x = 0;
+
+        self.edited = true;
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
