@@ -1,9 +1,9 @@
 use crate::{
     globals::{QUIT_CONFIRMATION_COUNT, TAB_SIZE, VERSION},
     input::{EditorKey, Key},
-    output::{clear_display, move_cursor_to_top_left},
+    output::{clear_display, move_cursor_to_top_left, prompt_user},
     terminal::disable_raw_mode,
-    utils::{ctrl_key, flush_stdout, get_window_size, lines_to_string},
+    utils::{ctrl_key, flush_stdout, get_file_name_from_path, get_window_size, lines_to_string},
     WindowSize,
 };
 use std::{
@@ -109,17 +109,23 @@ impl EditorInstance {
         }
 
         self.file_path = Some(file_path.to_string());
-
-        self.file_name = Some(
-            file_path
-                .split('/')
-                .last()
-                .expect("Error retrieving file from provided file path")
-                .into(),
-        );
+        self.file_name = Some(get_file_name_from_path(file_path));
     }
 
     fn save(&mut self) -> () {
+        if self.file_path.is_none() {
+            match prompt_user(self, "Save as: ") {
+                Some(file_path) => {
+                    self.file_name = Some(get_file_name_from_path(&file_path));
+                    self.file_path = Some(file_path);
+                }
+                None => {
+                    self.set_status_message("Save aborted");
+                    return;
+                }
+            }
+        }
+
         if let Some(file_path) = &self.file_path {
             let mut file = match OpenOptions::new()
                 .read(true)

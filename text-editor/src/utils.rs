@@ -150,3 +150,11 @@ pub fn lines_to_string(lines: &Vec<Line>) -> String {
 
     string
 }
+
+pub fn get_file_name_from_path(file_path: &str) -> String {
+    file_path
+        .split('/')
+        .last()
+        .expect("Error parsing file from provided file path")
+        .into()
+}

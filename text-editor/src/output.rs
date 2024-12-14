@@ -1,4 +1,8 @@
-use crate::{editor_instance::EditorInstance, utils::flush_stdout};
+use crate::{
+    editor_instance::EditorInstance,
+    input::{read_key_input, EditorKey, Key},
+    utils::flush_stdout,
+};
 use std::io::{self, Write};
 
 pub fn move_cursor_to_top_left() -> () {
@@ -39,4 +43,35 @@ pub fn refresh_screen(editor_instance: &mut EditorInstance) -> () {
     editor_instance.draw_status_message_bar();
     editor_instance.move_cursor_to_position();
     show_cursor();
+}
+
+pub fn prompt_user(editor_instance: &mut EditorInstance, prompt: &str) -> Option<String> {
+    let mut buffer = String::new();
+
+    loop {
+        editor_instance.set_status_message(&format!("{}{}", prompt, buffer));
+        refresh_screen(editor_instance);
+
+        if let Some(char) = read_key_input() {
+            match char {
+                Key::U8(b'\x1b') => {
+                    editor_instance.set_status_message("");
+                    return None;
+                }
+                Key::Custom(EditorKey::Backspace) => {
+                    buffer.pop();
+                }
+                Key::U8(b'\r') => {
+                    if !buffer.is_empty() {
+                        editor_instance.set_status_message("");
+                        return Some(buffer);
+                    }
+                }
+                Key::U8(byte) if !(byte as char).is_ascii_control() => {
+                    buffer += &(byte as char).to_string()
+                }
+                _ => {}
+            }
+        }
+    }
 }
