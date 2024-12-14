@@ -31,7 +31,7 @@ fn read_single_key() -> Option<u8> {
     }
 }
 
-fn read_key_input() -> Option<Key> {
+pub fn read_key_input() -> Option<Key> {
     let esc = Key::U8(b'\x1b');
 
     match read_single_key() {
