@@ -45,17 +45,26 @@ pub fn refresh_screen(editor_instance: &mut EditorInstance) -> () {
     show_cursor();
 }
 
-pub fn prompt_user(editor_instance: &mut EditorInstance, prompt: &str) -> Option<String> {
+pub fn prompt_user<F: Fn(&mut EditorInstance, &str, Key)>(
+    editor_instance: &mut EditorInstance,
+    prompt: &str,
+    callback: Option<F>,
+) -> Option<String> {
     let mut buffer = String::new();
 
     loop {
         editor_instance.set_status_message(&format!("{}{}", prompt, buffer));
         refresh_screen(editor_instance);
 
-        if let Some(char) = read_key_input() {
-            match char {
+        if let Some(key) = read_key_input() {
+            match key {
                 Key::U8(b'\x1b') => {
                     editor_instance.set_status_message("");
+
+                    if let Some(callback) = &callback {
+                        callback(editor_instance, &buffer, key);
+                    }
+
                     return None;
                 }
                 Key::Custom(EditorKey::Backspace) => {
@@ -64,6 +73,11 @@ pub fn prompt_user(editor_instance: &mut EditorInstance, prompt: &str) -> Option
                 Key::U8(b'\r') => {
                     if !buffer.is_empty() {
                         editor_instance.set_status_message("");
+
+                        if let Some(callback) = &callback {
+                            callback(editor_instance, &buffer, key);
+                        }
+
                         return Some(buffer);
                     }
                 }
@@ -71,6 +85,10 @@ pub fn prompt_user(editor_instance: &mut EditorInstance, prompt: &str) -> Option
                     buffer += &(byte as char).to_string()
                 }
                 _ => {}
+            }
+
+            if let Some(callback) = &callback {
+                callback(editor_instance, &buffer, key);
             }
         }
     }
