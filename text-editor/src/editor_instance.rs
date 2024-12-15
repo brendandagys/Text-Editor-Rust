@@ -555,11 +555,19 @@ impl EditorInstance {
     }
 
     fn prompt_and_find_text(&mut self) -> () {
-        prompt_user(
+        let saved_cursor_position = self.cursor_position.clone();
+        let saved_column_scrolled_to = self.column_scrolled_to;
+        let saved_line_scrolled_to = self.line_scrolled_to;
+
+        if let None = prompt_user(
             self,
             "Search (ESC to abort): ",
             Some(EditorInstance::find_text_callback),
-        );
+        ) {
+            self.cursor_position = saved_cursor_position;
+            self.column_scrolled_to = saved_column_scrolled_to;
+            self.line_scrolled_to = saved_line_scrolled_to;
+        }
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
