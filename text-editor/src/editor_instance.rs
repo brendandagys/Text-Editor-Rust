@@ -114,7 +114,7 @@ impl EditorInstance {
 
     fn save(&mut self) -> () {
         if self.file_path.is_none() {
-            match prompt_user(self, "Save as: ") {
+            match prompt_user::<fn(&mut EditorInstance, &str, Key)>(self, "Save as: ", None) {
                 Some(file_path) => {
                     self.file_name = Some(get_file_name_from_path(&file_path));
                     self.file_path = Some(file_path);
@@ -523,30 +523,43 @@ impl EditorInstance {
         self.edited = true;
     }
 
-    fn prompt_and_find_text(&mut self) -> () {
-        if let Some(query) = prompt_user(self, "Search (ESC to abort): ") {
-            if let Some((matched_line_index, line)) = self
-                .lines
-                .iter()
-                .enumerate()
-                .find(|(_, line)| line.render.contains(&query))
-            {
-                self.cursor_position.y = matched_line_index.try_into().expect(
-                    "Could not convert matched line index usize into cursor y-position u32",
-                );
-
-                self.cursor_position.x =
-                    self.render_x_to_cursor_x(line.render.find(&query).unwrap().try_into().expect(
-                        "Could not convert matched line index usize into cursor x-position u16",
-                    ));
-
-                self.line_scrolled_to = self
-                    .lines
-                    .len()
-                    .try_into()
-                    .expect("Could not convert line length usize into u32");
+    fn find_text_callback(&mut self, query: &str, key: Key) -> () {
+        match key {
+            Key::U8(key) if key == b'\x1b' || key == b'\r' => {
+                return;
             }
+            _ => {}
         }
+
+        if let Some((matched_line_index, line)) = self
+            .lines
+            .iter()
+            .enumerate()
+            .find(|(_, line)| line.render.contains(&query))
+        {
+            self.cursor_position.y = matched_line_index
+                .try_into()
+                .expect("Could not convert matched line index usize into cursor y-position u32");
+
+            self.cursor_position.x =
+                self.render_x_to_cursor_x(line.render.find(&query).unwrap().try_into().expect(
+                    "Could not convert matched line index usize into cursor x-position u16",
+                ));
+
+            self.line_scrolled_to = self
+                .lines
+                .len()
+                .try_into()
+                .expect("Could not convert line length usize into u32");
+        }
+    }
+
+    fn prompt_and_find_text(&mut self) -> () {
+        prompt_user(
+            self,
+            "Search (ESC to abort): ",
+            Some(EditorInstance::find_text_callback),
+        );
     }
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
