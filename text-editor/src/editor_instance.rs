@@ -40,6 +40,11 @@ struct StatusMessage {
     time_set: Instant,
 }
 
+enum SearchDirection {
+    Forward,
+    Backward,
+}
+
 pub struct EditorInstance {
     original_termios: Termios,
     pub window_size: WindowSize,
@@ -52,6 +57,8 @@ pub struct EditorInstance {
     status_message: Option<StatusMessage>,
     edited: bool,
     quit_confirmations: u8,
+    previous_search_match_line_index: Option<usize>,
+    search_direction: SearchDirection,
 }
 
 impl EditorInstance {
@@ -72,6 +79,8 @@ impl EditorInstance {
             status_message: None,
             edited: false,
             quit_confirmations: 0,
+            previous_search_match_line_index: None,
+            search_direction: SearchDirection::Forward,
         }
     }
 
@@ -526,31 +535,84 @@ impl EditorInstance {
     fn find_text_callback(&mut self, query: &str, key: Key) -> () {
         match key {
             Key::U8(key) if key == b'\x1b' || key == b'\r' => {
+                self.previous_search_match_line_index = None;
+                self.search_direction = SearchDirection::Forward;
                 return;
             }
-            _ => {}
+            Key::Custom(EditorKey::ArrowRight) | Key::Custom(EditorKey::ArrowDown) => {
+                self.search_direction = SearchDirection::Forward;
+            }
+            Key::Custom(EditorKey::ArrowLeft) | Key::Custom(EditorKey::ArrowUp) => {
+                self.search_direction = SearchDirection::Backward;
+            }
+            _ => {
+                self.previous_search_match_line_index = None;
+                self.search_direction = SearchDirection::Forward;
+            }
         }
 
-        if let Some((matched_line_index, line)) = self
-            .lines
-            .iter()
-            .enumerate()
-            .find(|(_, line)| line.render.contains(&query))
-        {
-            self.cursor_position.y = matched_line_index
-                .try_into()
-                .expect("Could not convert matched line index usize into cursor y-position u32");
+        if self.previous_search_match_line_index.is_none() {
+            self.search_direction = SearchDirection::Forward;
+        }
 
-            self.cursor_position.x =
-                self.render_x_to_cursor_x(line.render.find(&query).unwrap().try_into().expect(
-                    "Could not convert matched line index usize into cursor x-position u16",
-                ));
-
-            self.line_scrolled_to = self
-                .lines
-                .len()
+        let mut current_line_index: isize = match self.previous_search_match_line_index {
+            Some(i) => i
                 .try_into()
-                .expect("Could not convert line length usize into u32");
+                .expect("Failed to convert lines index usize to isize for search"),
+            None => -1,
+        };
+
+        for _ in 0..self.lines.len() {
+            current_line_index += match self.search_direction {
+                SearchDirection::Forward => 1,
+                SearchDirection::Backward => -1,
+            };
+
+            match current_line_index {
+                -1 => {
+                    let num_lines: isize = self
+                        .lines
+                        .len()
+                        .try_into()
+                        .expect("Failed to convert lines index usize to isize for search");
+
+                    current_line_index = num_lines - 1;
+                }
+                x if x
+                    == self
+                        .lines
+                        .len()
+                        .try_into()
+                        .expect("Failed to convert number of lines from usize to isize") =>
+                {
+                    current_line_index = 0
+                }
+                _ => {}
+            }
+
+            let current_line = &self.lines[current_line_index as usize];
+
+            if current_line.render.contains(&query) {
+                self.previous_search_match_line_index = Some(current_line_index as usize);
+
+                self.cursor_position.y = current_line_index.try_into().expect(
+                    "Could not convert matched line index usize into cursor y-position u32",
+                );
+
+                self.cursor_position.x = self.render_x_to_cursor_x(
+                    current_line.render.find(&query).unwrap().try_into().expect(
+                        "Could not convert matched line index usize into cursor x-position u16",
+                    ),
+                );
+
+                self.line_scrolled_to = self
+                    .lines
+                    .len()
+                    .try_into()
+                    .expect("Could not convert line length usize into u32");
+
+                return;
+            }
         }
     }
 
@@ -561,7 +623,7 @@ impl EditorInstance {
 
         if let None = prompt_user(
             self,
-            "Search (ESC to abort): ",
+            "Search (ESC to abort, arrows to jump): ",
             Some(EditorInstance::find_text_callback),
         ) {
             self.cursor_position = saved_cursor_position;
