@@ -84,6 +84,10 @@ impl EditorInstance {
         }
     }
 
+    fn get_current_line(&self) -> &Line {
+        &self.lines[self.cursor_position.y as usize]
+    }
+
     fn get_render_text_from_text(text: &str) -> String {
         let mut render = String::new();
         let mut render_index = 0;
@@ -198,7 +202,8 @@ impl EditorInstance {
             Key::Custom(EditorKey::Home) => self.cursor_position.x = 0,
             Key::Custom(EditorKey::End) => {
                 if (self.cursor_position.y as usize) < self.lines.len() {
-                    self.cursor_position.x = self.lines[self.cursor_position.y as usize]
+                    self.cursor_position.x = self
+                        .get_current_line()
                         .text
                         .chars()
                         .count()
@@ -279,7 +284,7 @@ impl EditorInstance {
 
     pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
         let current_line = if (self.cursor_position.y as usize) < self.lines.len() {
-            Some(&self.lines[self.cursor_position.y as usize])
+            Some(self.get_current_line())
         } else {
             None
         };
@@ -290,7 +295,8 @@ impl EditorInstance {
                     self.cursor_position.x -= 1;
                 } else if self.cursor_position.y > 0 {
                     self.cursor_position.y -= 1;
-                    self.cursor_position.x = self.lines[self.cursor_position.y as usize]
+                    self.cursor_position.x = self
+                        .get_current_line()
                         .text
                         .chars()
                         .count()
@@ -322,7 +328,7 @@ impl EditorInstance {
 
         let current_line_after_cursor_move = if (self.cursor_position.y as usize) < self.lines.len()
         {
-            Some(&self.lines[self.cursor_position.y as usize])
+            Some(self.get_current_line())
         } else {
             None
         };
@@ -355,12 +361,7 @@ impl EditorInstance {
 
     fn cursor_x_to_render_x(&self, cursor_x_position: u16) -> u16 {
         (0..cursor_x_position).fold(0, |acc, x| {
-            let char = self.lines[self.cursor_position.y as usize]
-                .text
-                .chars()
-                .nth(x as usize);
-
-            match char {
+            match self.get_current_line().text.chars().nth(x as usize) {
                 Some(char) if char == '\t' => acc + TAB_SIZE as u16 - (acc % TAB_SIZE as u16),
                 _ => acc + 1,
             }
@@ -371,13 +372,9 @@ impl EditorInstance {
         let mut calculated_render_x_position = 0;
         let mut calculated_x_position = 0;
 
-        while (calculated_x_position as usize)
-            < self.lines[self.cursor_position.y as usize]
-                .text
-                .chars()
-                .count()
-        {
-            let char = self.lines[self.cursor_position.y as usize]
+        while (calculated_x_position as usize) < self.get_current_line().text.chars().count() {
+            let char = self
+                .get_current_line()
                 .text
                 .chars()
                 .nth(calculated_x_position as usize);
@@ -481,7 +478,7 @@ impl EditorInstance {
                 .try_into()
                 .expect("Could not convert line index usize into cursor x-position u16");
 
-            let string_to_append = self.lines[self.cursor_position.y as usize].text.clone();
+            let string_to_append = self.get_current_line().text.clone();
 
             EditorInstance::append_string_to_line(
                 &mut self.lines[(self.cursor_position.y - 1) as usize],
