@@ -8,7 +8,7 @@ use crate::{
 };
 use std::{
     cmp::min,
-    fs::{File, OpenOptions},
+    fs::{self, OpenOptions},
     io::{self, BufRead, BufReader, Write},
     os::unix::fs::OpenOptionsExt,
     time::Instant,
@@ -45,6 +45,11 @@ enum SearchDirection {
     Backward,
 }
 
+struct File {
+    path: String,
+    name: String,
+}
+
 pub struct EditorInstance {
     original_termios: Termios,
     pub window_size: WindowSize,
@@ -52,8 +57,7 @@ pub struct EditorInstance {
     lines: Vec<Line>,
     line_scrolled_to: u32,
     column_scrolled_to: u16,
-    file_path: Option<String>,
-    file_name: Option<String>,
+    file: Option<File>,
     status_message: Option<StatusMessage>,
     edited: bool,
     quit_confirmations: u8,
@@ -74,8 +78,7 @@ impl EditorInstance {
             lines: vec![],
             line_scrolled_to: 0,
             column_scrolled_to: 0,
-            file_path: None,
-            file_name: None,
+            file: None,
             status_message: None,
             edited: false,
             quit_confirmations: 0,
@@ -111,8 +114,9 @@ impl EditorInstance {
     }
 
     pub fn open(&mut self, file_path: &str) {
-        let reader =
-            BufReader::new(File::open(file_path).expect("Failed to open file at specified path"));
+        let reader = BufReader::new(
+            fs::File::open(file_path).expect("Failed to open file at specified path"),
+        );
 
         for line in reader.lines() {
             let text = line.expect(&format!("Failed to read line from file: {}", file_path));
@@ -121,16 +125,20 @@ impl EditorInstance {
             self.lines.push(Line { text, render });
         }
 
-        self.file_path = Some(file_path.to_string());
-        self.file_name = Some(get_file_name_from_path(file_path));
+        self.file = Some(File {
+            path: file_path.to_string(),
+            name: get_file_name_from_path(file_path),
+        });
     }
 
     fn save(&mut self) -> () {
-        if self.file_path.is_none() {
+        if self.file.is_none() {
             match prompt_user::<fn(&mut EditorInstance, &str, Key)>(self, "Save as: ", None) {
                 Some(file_path) => {
-                    self.file_name = Some(get_file_name_from_path(&file_path));
-                    self.file_path = Some(file_path);
+                    self.file = Some(File {
+                        name: get_file_name_from_path(&file_path),
+                        path: file_path,
+                    });
                 }
                 None => {
                     self.set_status_message("Save aborted");
@@ -139,19 +147,19 @@ impl EditorInstance {
             }
         }
 
-        if let Some(file_path) = &self.file_path {
-            let mut file = match OpenOptions::new()
+        if let Some(file) = &self.file {
+            let mut fs_file = match OpenOptions::new()
                 .read(true)
                 .write(true)
                 .create(true)
                 .mode(0o644) // Owner R/W; others R
-                .open(file_path)
+                .open(&file.path)
             {
-                Ok(file) => file,
+                Ok(fs_file) => fs_file,
                 Err(e) => {
                     self.set_status_message(&format!(
-                        "Failed to open {file_path} for saving: {:?}",
-                        e
+                        "Failed to open {} for saving: {:?}",
+                        file.path, e
                     ));
                     return;
                 }
@@ -170,21 +178,21 @@ impl EditorInstance {
                 }
             };
 
-            if let Err(e) = file.set_len(content_length) {
+            if let Err(e) = fs_file.set_len(content_length) {
                 self.set_status_message(&format!(
-                    "Failed to truncate {file_path} to new length: {:?}",
-                    e
+                    "Failed to truncate {} to new length: {:?}",
+                    file.path, e
                 ));
                 return;
             }
 
-            match file.write_all(content.as_bytes()) {
+            match fs_file.write_all(content.as_bytes()) {
                 Ok(_) => {
                     self.set_status_message(&format!("{} bytes written to disk", content.len()));
                     self.edited = false;
                 }
                 Err(e) => {
-                    self.set_status_message(&format!("Failed to write to {file_path}: {:?}", e))
+                    self.set_status_message(&format!("Failed to write to {}: {:?}", file.path, e))
                 }
             }
         }
@@ -693,7 +701,10 @@ impl EditorInstance {
 
         let mut status_bar_content = format!(
             " {:.20} - {} lines{} ",
-            self.file_name.as_ref().unwrap_or(&"[New File]".to_string()),
+            match &self.file {
+                Some(file) => &file.name,
+                None => "[New File]",
+            },
             self.lines.len(),
             if self.edited { " (modified)" } else { "" }
         );
