@@ -30,9 +30,16 @@ pub enum CursorMovement {
     Right,
 }
 
+#[derive(Clone, PartialEq)]
+enum HighlightType {
+    Normal,
+    Number,
+}
+
 pub struct Line {
     pub text: String,
     render: String,
+    highlight: Vec<HighlightType>,
 }
 
 struct StatusMessage {
@@ -113,6 +120,25 @@ impl EditorInstance {
         render
     }
 
+    fn get_highlight_from_render_text(render_text: &str) -> Vec<HighlightType> {
+        let mut highlight = vec![HighlightType::Normal; render_text.chars().count()];
+
+        render_text.chars().enumerate().for_each(|(i, char)| {
+            if char.is_ascii_digit() {
+                highlight[i] = HighlightType::Number;
+            }
+        });
+
+        highlight
+    }
+
+    fn get_color_from_highlight_type(highlight_type: &HighlightType) -> i8 {
+        match highlight_type {
+            HighlightType::Number => 31,
+            HighlightType::Normal => 37,
+        }
+    }
+
     pub fn open(&mut self, file_path: &str) {
         let reader = BufReader::new(
             fs::File::open(file_path).expect("Failed to open file at specified path"),
@@ -121,8 +147,13 @@ impl EditorInstance {
         for line in reader.lines() {
             let text = line.expect(&format!("Failed to read line from file: {}", file_path));
             let render = EditorInstance::get_render_text_from_text(&text);
+            let highlight = EditorInstance::get_highlight_from_render_text(&render);
 
-            self.lines.push(Line { text, render });
+            self.lines.push(Line {
+                text,
+                render,
+                highlight,
+            });
         }
 
         self.file = Some(File {
@@ -434,6 +465,7 @@ impl EditorInstance {
             .insert(min(index, line.text.chars().count()), character);
 
         line.render = EditorInstance::get_render_text_from_text(&line.text);
+        line.highlight = EditorInstance::get_highlight_from_render_text(&line.render);
     }
 
     fn insert_character(&mut self, character: char) -> () {
@@ -441,6 +473,7 @@ impl EditorInstance {
             self.lines.push(Line {
                 text: String::new(),
                 render: String::new(),
+                highlight: vec![],
             });
         }
 
@@ -455,13 +488,15 @@ impl EditorInstance {
     }
 
     fn append_string_to_line(line: &mut Line, string: &str) -> () {
-        line.text += string;
+        line.text.push_str(string);
         line.render = EditorInstance::get_render_text_from_text(&line.text);
+        line.highlight = EditorInstance::get_highlight_from_render_text(&line.render);
     }
 
     fn delete_character_from_line(line: &mut Line, index: usize) -> () {
         line.text.remove(index);
         line.render = EditorInstance::get_render_text_from_text(&line.text);
+        line.highlight = EditorInstance::get_highlight_from_render_text(&line.render);
     }
 
     fn delete_character(&mut self) -> () {
@@ -507,6 +542,7 @@ impl EditorInstance {
                 Line {
                     text: String::new(),
                     render: String::new(),
+                    highlight: vec![],
                 },
             );
         } else {
@@ -518,15 +554,20 @@ impl EditorInstance {
             let new_next_line_render_text =
                 EditorInstance::get_render_text_from_text(&new_next_line_text);
 
-            current_line.text.truncate(self.cursor_position.x as usize);
+            let new_next_line_highlight =
+                EditorInstance::get_highlight_from_render_text(&new_next_line_render_text);
 
+            current_line.text.truncate(self.cursor_position.x as usize);
             current_line.render = EditorInstance::get_render_text_from_text(&current_line.text);
+            current_line.highlight =
+                EditorInstance::get_highlight_from_render_text(&current_line.render);
 
             self.lines.insert(
                 self.cursor_position.y as usize + 1,
                 Line {
                     text: new_next_line_text,
                     render: new_next_line_render_text,
+                    highlight: new_next_line_highlight,
                 },
             );
         }
@@ -657,35 +698,72 @@ impl EditorInstance {
                     let mut padding = (self.window_size.columns - message_length) / 2;
 
                     if padding > 0 {
-                        buffer += "~";
+                        buffer.push('~');
                         padding -= 1;
                     }
 
                     for _ in 0..padding {
-                        buffer += " ";
+                        buffer.push(' ');
                     }
 
-                    buffer += &message;
+                    buffer.push_str(&message);
                 } else {
-                    buffer += "~";
+                    buffer.push('~');
                 }
             } else {
-                let line_content = &self.lines[scrolled_to_row as usize].render;
+                let line = &self.lines[scrolled_to_row as usize];
+                let line_content = &line.render;
+                let line_highlight = &line.highlight;
 
                 let start = self.column_scrolled_to as usize;
                 let end = start + self.window_size.columns as usize;
 
                 let num_characters = line_content.chars().count();
 
-                if num_characters > end {
-                    buffer += &line_content[start..end];
+                let to_iter = if num_characters > end {
+                    Some(&line_content[start..end])
                 } else if num_characters > start {
-                    buffer += &line_content[start..];
+                    Some(&line_content[start..])
+                } else {
+                    None
+                };
+
+                if let Some(to_iter) = to_iter {
+                    let mut current_highlight_type = &HighlightType::Normal;
+
+                    to_iter.chars().enumerate().for_each(|(i, char)| {
+                        let highlight_type = &line_highlight[start + i];
+
+                        match highlight_type {
+                            HighlightType::Normal => {
+                                if current_highlight_type != &HighlightType::Normal {
+                                    buffer.push_str("\x1b[39m"); // m: Select Graphic Rendition (39: default color)
+                                    current_highlight_type = &HighlightType::Normal;
+                                }
+                            }
+                            _ => {
+                                if current_highlight_type != highlight_type {
+                                    current_highlight_type = highlight_type;
+                                    buffer.push_str("\x1b[");
+                                    buffer.push_str(
+                                        &EditorInstance::get_color_from_highlight_type(
+                                            highlight_type,
+                                        )
+                                        .to_string(),
+                                    );
+                                    buffer.push('m');
+                                }
+                            }
+                        };
+
+                        buffer.push(char);
+                    });
+
+                    buffer.push_str("\x1b[39m");
                 }
             }
 
-            buffer += "\x1b[K"; // Erase In Line (2: whole, 1: to left, 0: to right [default])
-            buffer += "\r\n";
+            buffer.push_str("\x1b[K\r\n"); // K: Erase In Line (2: whole, 1: to left, 0: to right [default])
         }
 
         write!(io::stdout(), "{}", buffer).expect("Error writing to stdout while drawing rows");
@@ -697,7 +775,7 @@ impl EditorInstance {
 
         // Select Graphic Rendition (e.g. `<esc>[1;4;5;7m`)
         // 1: Bold, 4: Underscore, 5: Blink, 7: Inverted colors, 0: Clear all (default)
-        buffer += "\x1b[7m";
+        buffer.push_str("\x1b[7m");
 
         let mut status_bar_content = format!(
             " {:.20} - {} lines{} ",
@@ -711,7 +789,7 @@ impl EditorInstance {
 
         status_bar_content.truncate(self.window_size.columns as usize);
 
-        buffer += &status_bar_content;
+        buffer.push_str(&status_bar_content);
 
         let space_left = self.window_size.columns as usize - status_bar_content.chars().count();
 
@@ -722,11 +800,10 @@ impl EditorInstance {
 
         let gap = space_left - cursor_position_information.chars().count();
 
-        buffer += &" ".repeat(gap);
-        buffer += &cursor_position_information;
+        buffer.push_str(&" ".repeat(gap));
+        buffer.push_str(&cursor_position_information);
 
-        buffer += "\x1b[m";
-        buffer += "\r\n"; // New line for status message
+        buffer.push_str("\x1b[m\r\n"); // Reset text formatting and add newline for status message
 
         write!(io::stdout(), "{}", buffer)
             .expect("Error writing to stdout while drawing status bar");
@@ -748,7 +825,7 @@ impl EditorInstance {
                 let mut message = format!(" {} ", status_message.message.clone());
                 message.truncate(self.window_size.columns as usize);
 
-                buffer += &message;
+                buffer.push_str(&message);
             }
         }
 

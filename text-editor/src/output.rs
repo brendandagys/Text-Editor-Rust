@@ -81,9 +81,7 @@ pub fn prompt_user<F: Fn(&mut EditorInstance, &str, Key)>(
                         return Some(buffer);
                     }
                 }
-                Key::U8(byte) if !(byte as char).is_ascii_control() => {
-                    buffer += &(byte as char).to_string()
-                }
+                Key::U8(byte) if !(byte as char).is_ascii_control() => buffer.push(byte as char),
                 _ => {}
             }
 

@@ -144,8 +144,8 @@ pub fn lines_to_string(lines: &Vec<Line>) -> String {
     let mut string = String::new();
 
     for line in lines {
-        string += &line.text;
-        string += "\n";
+        string.push_str(&line.text);
+        string.push('\n');
     }
 
     string
