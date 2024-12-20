@@ -128,14 +128,39 @@ impl EditorInstance {
         render
     }
 
-    fn get_highlight_from_render_text(render_text: &str) -> Vec<HighlightType> {
-        let mut highlight = vec![HighlightType::Normal; render_text.chars().count()];
+    fn is_separator(char: char) -> bool {
+        char.is_ascii_punctuation() || char.is_ascii_whitespace() || char == '\n'
+    }
 
-        render_text.chars().enumerate().for_each(|(i, char)| {
-            if char.is_ascii_digit() {
+    fn get_highlight_from_render_text(render_text: &str) -> Vec<HighlightType> {
+        let mut chars = render_text.chars();
+        let num_chars = chars.clone().count();
+        let mut highlight = vec![HighlightType::Normal; num_chars];
+
+        let mut is_previous_char_separator = true;
+
+        let mut i = 0;
+        while i < num_chars {
+            let char = chars.next().unwrap();
+
+            let previous_highlight = if i > 0 {
+                &highlight[i - 1]
+            } else {
+                &HighlightType::Normal
+            };
+
+            if char.is_ascii_digit()
+                && (is_previous_char_separator || previous_highlight == &HighlightType::Number)
+            {
                 highlight[i] = HighlightType::Number;
+                i += 1;
+                is_previous_char_separator = false;
+                continue;
             }
-        });
+
+            is_previous_char_separator = EditorInstance::is_separator(char);
+            i += 1;
+        }
 
         highlight
     }
