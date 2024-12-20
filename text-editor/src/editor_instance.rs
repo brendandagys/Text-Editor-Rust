@@ -151,6 +151,7 @@ impl EditorInstance {
 
             if char.is_ascii_digit()
                 && (is_previous_char_separator || previous_highlight == &HighlightType::Number)
+                || (char == '.' && previous_highlight == &HighlightType::Number)
             {
                 highlight[i] = HighlightType::Number;
                 i += 1;
