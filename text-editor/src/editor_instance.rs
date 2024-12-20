@@ -34,6 +34,7 @@ pub enum CursorMovement {
 enum HighlightType {
     Normal,
     Number,
+    SearchMatch,
 }
 
 pub struct Line {
@@ -57,6 +58,11 @@ struct File {
     name: String,
 }
 
+struct SavedHighlight {
+    line_index: usize,
+    highlight: Vec<HighlightType>,
+}
+
 pub struct EditorInstance {
     original_termios: Termios,
     pub window_size: WindowSize,
@@ -70,6 +76,7 @@ pub struct EditorInstance {
     quit_confirmations: u8,
     previous_search_match_line_index: Option<usize>,
     search_direction: SearchDirection,
+    saved_highlight: Option<SavedHighlight>,
 }
 
 impl EditorInstance {
@@ -91,6 +98,7 @@ impl EditorInstance {
             quit_confirmations: 0,
             previous_search_match_line_index: None,
             search_direction: SearchDirection::Forward,
+            saved_highlight: None,
         }
     }
 
@@ -134,8 +142,9 @@ impl EditorInstance {
 
     fn get_color_from_highlight_type(highlight_type: &HighlightType) -> i8 {
         match highlight_type {
-            HighlightType::Number => 31,
             HighlightType::Normal => 37,
+            HighlightType::Number => 31,
+            HighlightType::SearchMatch => 34,
         }
     }
 
@@ -579,6 +588,10 @@ impl EditorInstance {
     }
 
     fn find_text_callback(&mut self, query: &str, key: Key) -> () {
+        if let Some(saved_highlight) = self.saved_highlight.take() {
+            self.lines[saved_highlight.line_index].highlight = saved_highlight.highlight;
+        }
+
         match key {
             Key::U8(key) if key == b'\x1b' || key == b'\r' => {
                 self.previous_search_match_line_index = None;
@@ -636,9 +649,10 @@ impl EditorInstance {
                 _ => {}
             }
 
-            let current_line = &self.lines[current_line_index as usize];
-
-            if current_line.render.contains(&query) {
+            if self.lines[current_line_index as usize]
+                .render
+                .contains(&query)
+            {
                 self.previous_search_match_line_index = Some(current_line_index as usize);
 
                 self.cursor_position.y = current_line_index.try_into().expect(
@@ -646,9 +660,14 @@ impl EditorInstance {
                 );
 
                 self.cursor_position.x = self.render_x_to_cursor_x(
-                    current_line.render.find(&query).unwrap().try_into().expect(
-                        "Could not convert matched line index usize into cursor x-position u16",
-                    ),
+                    self.lines[current_line_index as usize]
+                        .render
+                        .find(&query)
+                        .unwrap()
+                        .try_into()
+                        .expect(
+                            "Could not convert matched line index usize into cursor x-position u16",
+                        ),
                 );
 
                 self.line_scrolled_to = self
@@ -656,6 +675,15 @@ impl EditorInstance {
                     .len()
                     .try_into()
                     .expect("Could not convert line length usize into u32");
+
+                self.saved_highlight = Some(SavedHighlight {
+                    line_index: current_line_index as usize,
+                    highlight: self.lines[current_line_index as usize].highlight.clone(),
+                });
+
+                let start = self.cursor_position.x as usize;
+                self.lines[current_line_index as usize].highlight[start..start + query.len()]
+                    .fill(HighlightType::SearchMatch);
 
                 return;
             }
