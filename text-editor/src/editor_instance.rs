@@ -221,8 +221,8 @@ impl EditorInstance {
     fn get_color_from_highlight_type(highlight_type: &HighlightType) -> i8 {
         match highlight_type {
             HighlightType::Normal => 37,
-            HighlightType::Number => 31,
-            HighlightType::String => 35,
+            HighlightType::Number => 96,
+            HighlightType::String => 33,
             HighlightType::SearchMatch => 34,
         }
     }
