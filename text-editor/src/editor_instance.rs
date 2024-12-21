@@ -1,7 +1,7 @@
 use crate::{
     globals::{
-        Syntax, HIGHLIGHT_NUMBERS, QUIT_CONFIRMATION_COUNT, SYNTAX_CONFIGURATIONS, TAB_SIZE,
-        VERSION,
+        Syntax, HIGHLIGHT_NUMBERS, HIGHLIGHT_STRINGS, QUIT_CONFIRMATION_COUNT,
+        SYNTAX_CONFIGURATIONS, TAB_SIZE, VERSION,
     },
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left, prompt_user},
@@ -37,6 +37,7 @@ pub enum CursorMovement {
 enum HighlightType {
     Normal,
     Number,
+    String,
     SearchMatch,
 }
 
@@ -150,6 +151,7 @@ impl EditorInstance {
             None => highlight,
             Some(syntax) => {
                 let mut is_previous_char_separator = true;
+                let mut string_quote = None;
 
                 let mut i = 0;
                 while i < num_chars {
@@ -163,6 +165,36 @@ impl EditorInstance {
                     } else {
                         &HighlightType::Normal
                     };
+
+                    if (syntax.flags & HIGHLIGHT_STRINGS) != 0 {
+                        match string_quote {
+                            Some(quote) => {
+                                highlight[i] = HighlightType::String;
+
+                                if char == '\\' && i + 1 < num_chars {
+                                    highlight[i + 1] = HighlightType::String;
+                                    i += 2;
+                                    continue;
+                                }
+
+                                if char == quote {
+                                    string_quote = None;
+                                }
+
+                                i += 1;
+                                is_previous_char_separator = true;
+                                continue;
+                            }
+                            None => {
+                                if char == '"' || char == '\'' {
+                                    string_quote = Some(char);
+                                    highlight[i] = HighlightType::String;
+                                    i += 1;
+                                    continue;
+                                }
+                            }
+                        }
+                    }
 
                     if (syntax.flags & HIGHLIGHT_NUMBERS) != 0 {
                         if char.is_ascii_digit()
@@ -190,6 +222,7 @@ impl EditorInstance {
         match highlight_type {
             HighlightType::Normal => 37,
             HighlightType::Number => 31,
+            HighlightType::String => 35,
             HighlightType::SearchMatch => 34,
         }
     }

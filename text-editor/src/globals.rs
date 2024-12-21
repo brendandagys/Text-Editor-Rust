@@ -20,9 +20,10 @@ pub struct Syntax {
 }
 
 pub const HIGHLIGHT_NUMBERS: i32 = 1 << 0;
+pub const HIGHLIGHT_STRINGS: i32 = 1 << 1;
 
 pub static SYNTAX_CONFIGURATIONS: &'static [Syntax] = &[Syntax {
     file_type: "C",
     file_match: &[".c", ".h", ".cpp"],
-    flags: HIGHLIGHT_NUMBERS,
+    flags: HIGHLIGHT_NUMBERS | HIGHLIGHT_STRINGS,
 }];
