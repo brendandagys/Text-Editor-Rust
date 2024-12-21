@@ -12,3 +12,17 @@ pub fn get_buffer_lock() -> MutexGuard<'static, [u8; 1]> {
         Err(poisoned) => poisoned.into_inner(),
     }
 }
+
+pub struct Syntax {
+    pub file_type: &'static str,
+    pub file_match: &'static [&'static str],
+    pub flags: i32,
+}
+
+pub const HIGHLIGHT_NUMBERS: i32 = 1 << 0;
+
+pub static SYNTAX_CONFIGURATIONS: &'static [Syntax] = &[Syntax {
+    file_type: "C",
+    file_match: &[".c", ".h", ".cpp"],
+    flags: HIGHLIGHT_NUMBERS,
+}];

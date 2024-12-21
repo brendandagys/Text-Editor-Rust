@@ -1,5 +1,8 @@
 use crate::{
-    globals::{QUIT_CONFIRMATION_COUNT, TAB_SIZE, VERSION},
+    globals::{
+        Syntax, HIGHLIGHT_NUMBERS, QUIT_CONFIRMATION_COUNT, SYNTAX_CONFIGURATIONS, TAB_SIZE,
+        VERSION,
+    },
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left, prompt_user},
     terminal::disable_raw_mode,
@@ -77,6 +80,7 @@ pub struct EditorInstance {
     previous_search_match_line_index: Option<usize>,
     search_direction: SearchDirection,
     saved_highlight: Option<SavedHighlight>,
+    syntax: Option<&'static Syntax>,
 }
 
 impl EditorInstance {
@@ -89,6 +93,7 @@ impl EditorInstance {
                 y: 0,
                 render_x: 0,
             },
+            syntax: None,
             lines: vec![],
             line_scrolled_to: 0,
             column_scrolled_to: 0,
@@ -132,38 +137,53 @@ impl EditorInstance {
         char.is_ascii_punctuation() || char.is_ascii_whitespace() || char == '\n'
     }
 
-    fn get_highlight_from_render_text(render_text: &str) -> Vec<HighlightType> {
+    fn get_highlight_from_render_text(&self, render_text: &str) -> Vec<HighlightType> {
         let mut chars = render_text.chars();
         let num_chars = chars.clone().count();
         let mut highlight = vec![HighlightType::Normal; num_chars];
 
-        let mut is_previous_char_separator = true;
-
-        let mut i = 0;
-        while i < num_chars {
-            let char = chars.next().unwrap();
-
-            let previous_highlight = if i > 0 {
-                &highlight[i - 1]
-            } else {
-                &HighlightType::Normal
-            };
-
-            if char.is_ascii_digit()
-                && (is_previous_char_separator || previous_highlight == &HighlightType::Number)
-                || (char == '.' && previous_highlight == &HighlightType::Number)
-            {
-                highlight[i] = HighlightType::Number;
-                i += 1;
-                is_previous_char_separator = false;
-                continue;
-            }
-
-            is_previous_char_separator = EditorInstance::is_separator(char);
-            i += 1;
+        if self.syntax.is_none() {
+            return highlight;
         }
 
-        highlight
+        match self.syntax {
+            None => highlight,
+            Some(syntax) => {
+                let mut is_previous_char_separator = true;
+
+                let mut i = 0;
+                while i < num_chars {
+                    let char = match chars.next() {
+                        Some(char) => char,
+                        None => break,
+                    };
+
+                    let previous_highlight = if i > 0 {
+                        &highlight[i - 1]
+                    } else {
+                        &HighlightType::Normal
+                    };
+
+                    if (syntax.flags & HIGHLIGHT_NUMBERS) != 0 {
+                        if char.is_ascii_digit()
+                            && (is_previous_char_separator
+                                || previous_highlight == &HighlightType::Number)
+                            || (char == '.' && previous_highlight == &HighlightType::Number)
+                        {
+                            highlight[i] = HighlightType::Number;
+                            i += 1;
+                            is_previous_char_separator = false;
+                            continue;
+                        }
+                    }
+
+                    is_previous_char_separator = EditorInstance::is_separator(char);
+                    i += 1;
+                }
+
+                highlight
+            }
+        }
     }
 
     fn get_color_from_highlight_type(highlight_type: &HighlightType) -> i8 {
@@ -171,6 +191,49 @@ impl EditorInstance {
             HighlightType::Normal => 37,
             HighlightType::Number => 31,
             HighlightType::SearchMatch => 34,
+        }
+    }
+
+    fn update_line_highlights(&mut self) -> () {
+        let new_highlights: Vec<Vec<HighlightType>> = self
+            .lines
+            .iter()
+            .map(|line| self.get_highlight_from_render_text(&line.render))
+            .collect();
+
+        for (line, new_highlight) in self.lines.iter_mut().zip(new_highlights.into_iter()) {
+            line.highlight = new_highlight;
+        }
+    }
+
+    fn set_syntax_from_file_name(&mut self) -> () {
+        let file_name = match &self.file {
+            Some(file) => file.name.clone(),
+            None => return,
+        };
+
+        let file_extension = match file_name.rfind('.') {
+            Some(index) => Some(&file_name[index..]),
+            None => None,
+        };
+
+        for configuration in SYNTAX_CONFIGURATIONS {
+            for file_match in configuration.file_match {
+                match file_extension {
+                    Some(file_extension) => {
+                        if file_extension == *file_match {
+                            self.syntax = Some(configuration);
+                            self.update_line_highlights();
+                        }
+                    }
+                    None => {
+                        if file_name.contains(file_match) {
+                            self.syntax = Some(configuration);
+                            self.update_line_highlights();
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -182,7 +245,7 @@ impl EditorInstance {
         for line in reader.lines() {
             let text = line.expect(&format!("Failed to read line from file: {}", file_path));
             let render = EditorInstance::get_render_text_from_text(&text);
-            let highlight = EditorInstance::get_highlight_from_render_text(&render);
+            let highlight = self.get_highlight_from_render_text(&render);
 
             self.lines.push(Line {
                 text,
@@ -195,6 +258,8 @@ impl EditorInstance {
             path: file_path.to_string(),
             name: get_file_name_from_path(file_path),
         });
+
+        self.set_syntax_from_file_name();
     }
 
     fn save(&mut self) -> () {
@@ -205,6 +270,8 @@ impl EditorInstance {
                         name: get_file_name_from_path(&file_path),
                         path: file_path,
                     });
+
+                    self.set_syntax_from_file_name();
                 }
                 None => {
                     self.set_status_message("Save aborted");
@@ -495,12 +562,20 @@ impl EditorInstance {
         }
     }
 
-    fn insert_character_into_line(line: &mut Line, index: usize, character: char) -> () {
-        line.text
-            .insert(min(index, line.text.chars().count()), character);
+    fn insert_character_into_line(&mut self, character: char) -> () {
+        {
+            let line = &mut self.lines[self.cursor_position.y as usize];
 
-        line.render = EditorInstance::get_render_text_from_text(&line.text);
-        line.highlight = EditorInstance::get_highlight_from_render_text(&line.render);
+            line.text.insert(
+                min(self.cursor_position.x as usize, line.text.chars().count()),
+                character,
+            );
+
+            line.render = EditorInstance::get_render_text_from_text(&line.text);
+        }
+
+        self.lines[self.cursor_position.y as usize].highlight = self
+            .get_highlight_from_render_text(&self.lines[self.cursor_position.y as usize].render);
     }
 
     fn insert_character(&mut self, character: char) -> () {
@@ -512,26 +587,36 @@ impl EditorInstance {
             });
         }
 
-        EditorInstance::insert_character_into_line(
-            &mut self.lines[self.cursor_position.y as usize],
-            self.cursor_position.x as usize,
-            character,
-        );
+        self.insert_character_into_line(character);
 
         self.cursor_position.x += 1;
         self.edited = true;
     }
 
-    fn append_string_to_line(line: &mut Line, string: &str) -> () {
-        line.text.push_str(string);
-        line.render = EditorInstance::get_render_text_from_text(&line.text);
-        line.highlight = EditorInstance::get_highlight_from_render_text(&line.render);
+    fn append_string_to_line(&mut self, string: &str) -> () {
+        {
+            let line = &mut self.lines[(self.cursor_position.y - 1) as usize];
+
+            line.text.push_str(string);
+            line.render = EditorInstance::get_render_text_from_text(&line.text);
+        }
+
+        self.lines[(self.cursor_position.y - 1) as usize].highlight = self
+            .get_highlight_from_render_text(
+                &self.lines[(self.cursor_position.y - 1) as usize].render,
+            );
     }
 
-    fn delete_character_from_line(line: &mut Line, index: usize) -> () {
-        line.text.remove(index);
-        line.render = EditorInstance::get_render_text_from_text(&line.text);
-        line.highlight = EditorInstance::get_highlight_from_render_text(&line.render);
+    fn delete_character_from_line(&mut self) -> () {
+        {
+            let line = &mut self.lines[self.cursor_position.y as usize];
+
+            line.text.remove((self.cursor_position.x - 1) as usize);
+            line.render = EditorInstance::get_render_text_from_text(&line.text);
+        }
+
+        self.lines[self.cursor_position.y as usize].highlight = self
+            .get_highlight_from_render_text(&self.lines[self.cursor_position.y as usize].render);
     }
 
     fn delete_character(&mut self) -> () {
@@ -542,11 +627,7 @@ impl EditorInstance {
         }
 
         if self.cursor_position.x > 0 {
-            EditorInstance::delete_character_from_line(
-                &mut self.lines[self.cursor_position.y as usize],
-                (self.cursor_position.x - 1) as usize,
-            );
-
+            self.delete_character_from_line();
             self.cursor_position.x -= 1;
         } else {
             self.cursor_position.x = self.lines[(self.cursor_position.y - 1) as usize]
@@ -558,10 +639,7 @@ impl EditorInstance {
 
             let string_to_append = self.get_current_line().text.clone();
 
-            EditorInstance::append_string_to_line(
-                &mut self.lines[(self.cursor_position.y - 1) as usize],
-                &string_to_append,
-            );
+            self.append_string_to_line(&string_to_append);
 
             self.lines.remove(self.cursor_position.y as usize);
             self.cursor_position.y -= 1;
@@ -581,21 +659,29 @@ impl EditorInstance {
                 },
             );
         } else {
-            let current_line = &mut self.lines[self.cursor_position.y as usize];
-
-            let new_next_line_text =
-                current_line.text[self.cursor_position.x as usize..].to_string();
+            let new_next_line_text = self.lines[self.cursor_position.y as usize].text
+                [self.cursor_position.x as usize..]
+                .to_string();
 
             let new_next_line_render_text =
                 EditorInstance::get_render_text_from_text(&new_next_line_text);
 
             let new_next_line_highlight =
-                EditorInstance::get_highlight_from_render_text(&new_next_line_render_text);
+                self.get_highlight_from_render_text(&new_next_line_render_text);
 
-            current_line.text.truncate(self.cursor_position.x as usize);
-            current_line.render = EditorInstance::get_render_text_from_text(&current_line.text);
-            current_line.highlight =
-                EditorInstance::get_highlight_from_render_text(&current_line.render);
+            self.lines[self.cursor_position.y as usize]
+                .text
+                .truncate(self.cursor_position.x as usize);
+
+            self.lines[self.cursor_position.y as usize].render =
+                EditorInstance::get_render_text_from_text(
+                    &self.lines[self.cursor_position.y as usize].text,
+                );
+
+            self.lines[self.cursor_position.y as usize].highlight = self
+                .get_highlight_from_render_text(
+                    &self.lines[self.cursor_position.y as usize].render,
+                );
 
             self.lines.insert(
                 self.cursor_position.y as usize + 1,
@@ -847,8 +933,15 @@ impl EditorInstance {
 
         let space_left = self.window_size.columns as usize - status_bar_content.chars().count();
 
-        let mut cursor_position_information =
-            format!("{}/{} ", self.cursor_position.y + 1, self.lines.len());
+        let mut cursor_position_information = format!(
+            "{}{}/{} ",
+            match &self.syntax {
+                Some(syntax) => format!("{} ", syntax.file_type),
+                None => "".to_string(),
+            },
+            self.cursor_position.y + 1,
+            self.lines.len()
+        );
 
         cursor_position_information.truncate(space_left);
 
