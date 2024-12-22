@@ -231,7 +231,7 @@ impl EditorInstance {
                     }
 
                     if is_previous_char_separator {
-                        for keyword in syntax.keywords {
+                        for (k, keyword) in syntax.keywords.iter().chain(syntax.types).enumerate() {
                             let mut keyword_iterator = keyword.chars();
                             let keyword_length = keyword.chars().count();
 
@@ -248,7 +248,11 @@ impl EditorInstance {
                                         }
                                     {
                                         for j in i..i + keyword_length {
-                                            highlight[j] = HighlightType::Keyword;
+                                            highlight[j] = if k >= syntax.keywords.len() {
+                                                HighlightType::Type
+                                            } else {
+                                                HighlightType::Keyword
+                                            };
 
                                             if j < i + keyword_length - 1 {
                                                 chars.next();
@@ -276,9 +280,9 @@ impl EditorInstance {
     fn get_color_from_highlight_type(highlight_type: &HighlightType) -> i8 {
         match highlight_type {
             HighlightType::Normal => 37,
-            HighlightType::Number => 96,
+            HighlightType::Number => 93,
             HighlightType::String => 33,
-            HighlightType::Comment => 32,
+            HighlightType::Comment => 36,
             HighlightType::Keyword => 95,
             HighlightType::Type => 92,
             HighlightType::SearchMatch => 34,
