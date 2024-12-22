@@ -38,6 +38,7 @@ enum HighlightType {
     Normal,
     Number,
     String,
+    Comment,
     SearchMatch,
 }
 
@@ -143,10 +144,6 @@ impl EditorInstance {
         let num_chars = chars.clone().count();
         let mut highlight = vec![HighlightType::Normal; num_chars];
 
-        if self.syntax.is_none() {
-            return highlight;
-        }
-
         match self.syntax {
             None => highlight,
             Some(syntax) => {
@@ -165,6 +162,27 @@ impl EditorInstance {
                     } else {
                         &HighlightType::Normal
                     };
+
+                    if string_quote.is_none() {
+                        let mut single_line_comment_iterator =
+                            syntax.single_line_comment_start.chars();
+
+                        if chars.clone().count() >= single_line_comment_iterator.clone().count() {
+                            if let Some(first_single_line_comment_char) =
+                                single_line_comment_iterator.next()
+                            {
+                                if first_single_line_comment_char == char
+                                    && chars
+                                        .clone()
+                                        .zip(single_line_comment_iterator)
+                                        .all(|(char, comment_char)| char == comment_char)
+                                {
+                                    highlight[i..].fill(HighlightType::Comment);
+                                    break;
+                                }
+                            }
+                        }
+                    }
 
                     if (syntax.flags & HIGHLIGHT_STRINGS) != 0 {
                         match string_quote {
@@ -223,6 +241,7 @@ impl EditorInstance {
             HighlightType::Normal => 37,
             HighlightType::Number => 96,
             HighlightType::String => 33,
+            HighlightType::Comment => 32,
             HighlightType::SearchMatch => 34,
         }
     }
