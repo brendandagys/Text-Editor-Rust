@@ -39,6 +39,8 @@ enum HighlightType {
     Number,
     String,
     Comment,
+    Keyword,
+    Type,
     SearchMatch,
 }
 
@@ -151,7 +153,7 @@ impl EditorInstance {
                 let mut string_quote = None;
 
                 let mut i = 0;
-                while i < num_chars {
+                'outer: while i < num_chars {
                     let char = match chars.next() {
                         Some(char) => char,
                         None => break,
@@ -189,9 +191,10 @@ impl EditorInstance {
                             Some(quote) => {
                                 highlight[i] = HighlightType::String;
 
-                                if char == '\\' && i + 1 < num_chars {
+                                if char == '\\' {
                                     highlight[i + 1] = HighlightType::String;
                                     i += 2;
+                                    chars.next();
                                     continue;
                                 }
 
@@ -227,6 +230,40 @@ impl EditorInstance {
                         }
                     }
 
+                    if is_previous_char_separator {
+                        for keyword in syntax.keywords {
+                            let mut keyword_iterator = keyword.chars();
+                            let keyword_length = keyword.chars().count();
+
+                            if chars.clone().count() >= keyword_length - 1 {
+                                if let Some(keyword_first_char) = keyword_iterator.next() {
+                                    if keyword_first_char == char
+                                        && chars
+                                            .clone()
+                                            .zip(keyword_iterator)
+                                            .all(|(char, keyword_char)| char == keyword_char)
+                                        && match chars.clone().nth(keyword_length - 1) {
+                                            Some(char) => EditorInstance::is_separator(char),
+                                            None => true,
+                                        }
+                                    {
+                                        for j in i..i + keyword_length {
+                                            highlight[j] = HighlightType::Keyword;
+
+                                            if j < i + keyword_length - 1 {
+                                                chars.next();
+                                            }
+                                        }
+
+                                        i += keyword_length;
+                                        is_previous_char_separator = false;
+                                        continue 'outer;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     is_previous_char_separator = EditorInstance::is_separator(char);
                     i += 1;
                 }
@@ -242,6 +279,8 @@ impl EditorInstance {
             HighlightType::Number => 96,
             HighlightType::String => 33,
             HighlightType::Comment => 32,
+            HighlightType::Keyword => 95,
+            HighlightType::Type => 92,
             HighlightType::SearchMatch => 34,
         }
     }
