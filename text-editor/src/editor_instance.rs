@@ -967,31 +967,52 @@ impl EditorInstance {
                     let mut current_highlight_type = &HighlightType::Normal;
 
                     to_iter.chars().enumerate().for_each(|(i, char)| {
-                        let highlight_type = &line_highlight[start + i];
+                        if char.is_ascii_control() {
+                            buffer.push_str("\x1b[7m"); // Inverted colors
+                            buffer.push(if char as u8 <= 26 {
+                                ('@' as u8 + char as u8) as char
+                            } else {
+                                '?'
+                            });
+                            buffer.push_str("\x1b[m"); // Reset text formatting
 
-                        match highlight_type {
-                            HighlightType::Normal => {
-                                if current_highlight_type != &HighlightType::Normal {
-                                    buffer.push_str("\x1b[39m"); // m: Select Graphic Rendition (39: default color)
-                                    current_highlight_type = &HighlightType::Normal;
-                                }
+                            if current_highlight_type != &HighlightType::Normal {
+                                buffer.push_str("\x1b[");
+                                buffer.push_str(
+                                    &EditorInstance::get_color_from_highlight_type(
+                                        current_highlight_type,
+                                    )
+                                    .to_string(),
+                                );
+                                buffer.push('m');
                             }
-                            _ => {
-                                if current_highlight_type != highlight_type {
-                                    current_highlight_type = highlight_type;
-                                    buffer.push_str("\x1b[");
-                                    buffer.push_str(
-                                        &EditorInstance::get_color_from_highlight_type(
-                                            highlight_type,
-                                        )
-                                        .to_string(),
-                                    );
-                                    buffer.push('m');
-                                }
-                            }
-                        };
+                        } else {
+                            let highlight_type = &line_highlight[start + i];
 
-                        buffer.push(char);
+                            match highlight_type {
+                                HighlightType::Normal => {
+                                    if current_highlight_type != &HighlightType::Normal {
+                                        buffer.push_str("\x1b[39m"); // m: Select Graphic Rendition (39: default color)
+                                        current_highlight_type = &HighlightType::Normal;
+                                    }
+                                }
+                                _ => {
+                                    if current_highlight_type != highlight_type {
+                                        current_highlight_type = highlight_type;
+                                        buffer.push_str("\x1b[");
+                                        buffer.push_str(
+                                            &EditorInstance::get_color_from_highlight_type(
+                                                highlight_type,
+                                            )
+                                            .to_string(),
+                                        );
+                                        buffer.push('m');
+                                    }
+                                }
+                            };
+
+                            buffer.push(char);
+                        }
                     });
 
                     buffer.push_str("\x1b[39m");
