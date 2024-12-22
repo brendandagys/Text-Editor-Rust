@@ -16,6 +16,7 @@ pub fn get_buffer_lock() -> MutexGuard<'static, [u8; 1]> {
 pub struct Syntax {
     pub file_type: &'static str,
     pub file_match: &'static [&'static str],
+    pub single_line_comment_start: &'static str,
     pub flags: i32,
 }
 
@@ -25,5 +26,6 @@ pub const HIGHLIGHT_STRINGS: i32 = 1 << 1;
 pub static SYNTAX_CONFIGURATIONS: &'static [Syntax] = &[Syntax {
     file_type: "C",
     file_match: &[".c", ".h", ".cpp"],
+    single_line_comment_start: "//",
     flags: HIGHLIGHT_NUMBERS | HIGHLIGHT_STRINGS,
 }];
