@@ -39,6 +39,7 @@ enum HighlightType {
     Number,
     String,
     Comment,
+    MultiLineComment,
     Keyword,
     Type,
     SearchMatch,
@@ -48,6 +49,8 @@ pub struct Line {
     pub text: String,
     render: String,
     highlight: Vec<HighlightType>,
+    index: usize,
+    has_open_multiline_comment: bool,
 }
 
 struct StatusMessage {
@@ -141,16 +144,21 @@ impl EditorInstance {
         char.is_ascii_punctuation() || char.is_ascii_whitespace() || char == '\n'
     }
 
-    fn get_highlight_from_render_text(&self, render_text: &str) -> Vec<HighlightType> {
-        let mut chars = render_text.chars();
+    fn set_line_highlight(&mut self, line_index: usize) -> () {
+        let chars = &mut self.lines[line_index].render.chars();
         let num_chars = chars.clone().count();
         let mut highlight = vec![HighlightType::Normal; num_chars];
 
+        // TODO: if let Some
         match self.syntax {
-            None => highlight,
+            None => (),
             Some(syntax) => {
                 let mut is_previous_char_separator = true;
                 let mut string_quote = None;
+
+                let current_line = &self.lines[line_index];
+                let mut is_part_of_multiline_comment =
+                    current_line.index > 0 && self.lines[line_index - 1].has_open_multiline_comment;
 
                 let mut i = 0;
                 'outer: while i < num_chars {
@@ -169,7 +177,10 @@ impl EditorInstance {
                         let mut single_line_comment_iterator =
                             syntax.single_line_comment_start.chars();
 
-                        if chars.clone().count() >= single_line_comment_iterator.clone().count() {
+                        if !is_part_of_multiline_comment
+                            && chars.clone().count()
+                                >= single_line_comment_iterator.clone().count() - 1
+                        {
                             if let Some(first_single_line_comment_char) =
                                 single_line_comment_iterator.next()
                             {
@@ -181,6 +192,75 @@ impl EditorInstance {
                                 {
                                     highlight[i..].fill(HighlightType::Comment);
                                     break;
+                                }
+                            }
+                        }
+
+                        let mut multi_line_comment_start_iterator =
+                            syntax.multi_line_comment_start.chars();
+
+                        let multi_line_comment_start_length =
+                            multi_line_comment_start_iterator.clone().count();
+
+                        let mut multi_line_comment_end_iterator =
+                            syntax.multi_line_comment_end.chars();
+
+                        let multi_line_comment_end_length =
+                            multi_line_comment_end_iterator.clone().count();
+
+                        if is_part_of_multiline_comment {
+                            highlight[i] = HighlightType::MultiLineComment; // TODO: assign directly
+
+                            if let Some(first_multi_line_comment_end_char) =
+                                multi_line_comment_end_iterator.next()
+                            {
+                                if chars.clone().count() >= multi_line_comment_end_length - 1
+                                    && first_multi_line_comment_end_char == char
+                                    && chars
+                                        .clone()
+                                        .zip(multi_line_comment_end_iterator.clone())
+                                        .all(|(char, comment_char)| char == comment_char)
+                                {
+                                    highlight[i + 1..i + multi_line_comment_end_length]
+                                        .fill(HighlightType::MultiLineComment);
+
+                                    i += multi_line_comment_end_length;
+                                    is_part_of_multiline_comment = false;
+                                    is_previous_char_separator = true;
+
+                                    for _ in 0..multi_line_comment_end_length - 1 {
+                                        chars.next();
+                                    }
+
+                                    continue;
+                                }
+                            }
+
+                            i += 1;
+                            continue;
+                        } else if !is_part_of_multiline_comment
+                            && chars.clone().count() >= multi_line_comment_start_length - 1
+                        {
+                            if let Some(first_multi_line_comment_start_char) =
+                                multi_line_comment_start_iterator.next()
+                            {
+                                if first_multi_line_comment_start_char == char
+                                    && chars
+                                        .clone()
+                                        .zip(multi_line_comment_start_iterator.clone())
+                                        .all(|(char, comment_char)| char == comment_char)
+                                {
+                                    highlight[i..i + multi_line_comment_start_length]
+                                        .fill(HighlightType::MultiLineComment);
+
+                                    i += multi_line_comment_start_length;
+                                    is_part_of_multiline_comment = true;
+
+                                    for _ in 0..multi_line_comment_start_length - 1 {
+                                        chars.next();
+                                    }
+
+                                    continue;
                                 }
                             }
                         }
@@ -272,7 +352,16 @@ impl EditorInstance {
                     i += 1;
                 }
 
-                highlight
+                let did_is_part_of_multiline_comment_change =
+                    current_line.has_open_multiline_comment != is_part_of_multiline_comment;
+
+                self.lines[line_index].has_open_multiline_comment = is_part_of_multiline_comment;
+
+                if did_is_part_of_multiline_comment_change {
+                    self.set_line_highlight(line_index + 1);
+                }
+
+                self.lines[line_index].highlight = highlight; // TODO: assign directly
             }
         }
     }
@@ -282,7 +371,7 @@ impl EditorInstance {
             HighlightType::Normal => 37,
             HighlightType::Number => 93,
             HighlightType::String => 33,
-            HighlightType::Comment => 36,
+            HighlightType::Comment | HighlightType::MultiLineComment => 36,
             HighlightType::Keyword => 95,
             HighlightType::Type => 92,
             HighlightType::SearchMatch => 34,
@@ -290,14 +379,8 @@ impl EditorInstance {
     }
 
     fn update_line_highlights(&mut self) -> () {
-        let new_highlights: Vec<Vec<HighlightType>> = self
-            .lines
-            .iter()
-            .map(|line| self.get_highlight_from_render_text(&line.render))
-            .collect();
-
-        for (line, new_highlight) in self.lines.iter_mut().zip(new_highlights.into_iter()) {
-            line.highlight = new_highlight;
+        for line_index in 0..self.lines.len() {
+            self.set_line_highlight(line_index);
         }
     }
 
@@ -338,15 +421,19 @@ impl EditorInstance {
         );
 
         for line in reader.lines() {
+            let index = self.lines.len();
             let text = line.expect(&format!("Failed to read line from file: {}", file_path));
             let render = EditorInstance::get_render_text_from_text(&text);
-            let highlight = self.get_highlight_from_render_text(&render);
 
             self.lines.push(Line {
                 text,
                 render,
-                highlight,
+                highlight: vec![],
+                index,
+                has_open_multiline_comment: false,
             });
+
+            self.set_line_highlight(index);
         }
 
         self.file = Some(File {
@@ -658,19 +745,16 @@ impl EditorInstance {
     }
 
     fn insert_character_into_line(&mut self, character: char) -> () {
-        {
-            let line = &mut self.lines[self.cursor_position.y as usize];
+        let index = self.cursor_position.y as usize;
+        let line = &mut self.lines[index];
 
-            line.text.insert(
-                min(self.cursor_position.x as usize, line.text.chars().count()),
-                character,
-            );
+        line.text.insert(
+            min(self.cursor_position.x as usize, line.text.chars().count()), // TODO: can this be simplified?
+            character,
+        );
 
-            line.render = EditorInstance::get_render_text_from_text(&line.text);
-        }
-
-        self.lines[self.cursor_position.y as usize].highlight = self
-            .get_highlight_from_render_text(&self.lines[self.cursor_position.y as usize].render);
+        line.render = EditorInstance::get_render_text_from_text(&line.text);
+        self.set_line_highlight(index);
     }
 
     fn insert_character(&mut self, character: char) -> () {
@@ -679,6 +763,8 @@ impl EditorInstance {
                 text: String::new(),
                 render: String::new(),
                 highlight: vec![],
+                index: self.lines.len(),
+                has_open_multiline_comment: false,
             });
         }
 
@@ -688,36 +774,26 @@ impl EditorInstance {
         self.edited = true;
     }
 
-    fn append_string_to_line(&mut self, string: &str) -> () {
-        {
-            let line = &mut self.lines[(self.cursor_position.y - 1) as usize];
-
-            line.text.push_str(string);
-            line.render = EditorInstance::get_render_text_from_text(&line.text);
-        }
-
-        self.lines[(self.cursor_position.y - 1) as usize].highlight = self
-            .get_highlight_from_render_text(
-                &self.lines[(self.cursor_position.y - 1) as usize].render,
-            );
+    fn append_string_to_previous_line(&mut self, string: &str) -> () {
+        let previous_line_index = (self.cursor_position.y - 1) as usize;
+        let line = &mut self.lines[previous_line_index];
+        line.text.push_str(string);
+        line.render = EditorInstance::get_render_text_from_text(&line.text);
+        self.set_line_highlight(previous_line_index);
     }
 
     fn delete_character_from_line(&mut self) -> () {
-        {
-            let line = &mut self.lines[self.cursor_position.y as usize];
-
-            line.text.remove((self.cursor_position.x - 1) as usize);
-            line.render = EditorInstance::get_render_text_from_text(&line.text);
-        }
-
-        self.lines[self.cursor_position.y as usize].highlight = self
-            .get_highlight_from_render_text(&self.lines[self.cursor_position.y as usize].render);
+        let line_index = self.cursor_position.y as usize;
+        let line = &mut self.lines[line_index];
+        line.text.remove((self.cursor_position.x - 1) as usize);
+        line.render = EditorInstance::get_render_text_from_text(&line.text);
+        self.set_line_highlight(line_index);
     }
 
     fn delete_character(&mut self) -> () {
-        if self.cursor_position.y as usize == self.lines.len()
-            || (self.cursor_position.x == 0 && self.cursor_position.y == 0)
-        {
+        let index = self.cursor_position.y as usize;
+
+        if index == self.lines.len() || (self.cursor_position.x == 0 && index == 0) {
             return;
         }
 
@@ -725,7 +801,7 @@ impl EditorInstance {
             self.delete_character_from_line();
             self.cursor_position.x -= 1;
         } else {
-            self.cursor_position.x = self.lines[(self.cursor_position.y - 1) as usize]
+            self.cursor_position.x = self.lines[index - 1]
                 .text
                 .chars()
                 .count()
@@ -734,9 +810,13 @@ impl EditorInstance {
 
             let string_to_append = self.get_current_line().text.clone();
 
-            self.append_string_to_line(&string_to_append);
+            self.append_string_to_previous_line(&string_to_append);
+            self.lines.remove(index);
 
-            self.lines.remove(self.cursor_position.y as usize);
+            for line in self.lines.iter_mut().skip(index) {
+                line.index -= 1;
+            }
+
             self.cursor_position.y -= 1;
         }
 
@@ -744,48 +824,55 @@ impl EditorInstance {
     }
 
     fn insert_line(&mut self) -> () {
+        let index = self.cursor_position.y as usize;
+
         if self.cursor_position.x == 0 {
             self.lines.insert(
-                self.cursor_position.y as usize,
+                index,
                 Line {
                     text: String::new(),
                     render: String::new(),
                     highlight: vec![],
+                    index,
+                    has_open_multiline_comment: false,
                 },
             );
+
+            for line in self.lines.iter_mut().skip(index + 1) {
+                line.index += 1;
+            }
         } else {
-            let new_next_line_text = self.lines[self.cursor_position.y as usize].text
-                [self.cursor_position.x as usize..]
-                .to_string();
+            let new_next_line_text =
+                self.lines[index].text[self.cursor_position.x as usize..].to_string();
 
             let new_next_line_render_text =
                 EditorInstance::get_render_text_from_text(&new_next_line_text);
 
-            let new_next_line_highlight =
-                self.get_highlight_from_render_text(&new_next_line_render_text);
-
-            self.lines[self.cursor_position.y as usize]
+            self.lines[index]
                 .text
                 .truncate(self.cursor_position.x as usize);
 
-            self.lines[self.cursor_position.y as usize].render =
-                EditorInstance::get_render_text_from_text(
-                    &self.lines[self.cursor_position.y as usize].text,
-                );
+            self.lines[index].render =
+                EditorInstance::get_render_text_from_text(&self.lines[index].text);
 
-            self.lines[self.cursor_position.y as usize].highlight = self
-                .get_highlight_from_render_text(
-                    &self.lines[self.cursor_position.y as usize].render,
-                );
+            self.set_line_highlight(index);
 
             self.lines.insert(
-                self.cursor_position.y as usize + 1,
+                index + 1,
                 Line {
                     text: new_next_line_text,
                     render: new_next_line_render_text,
-                    highlight: new_next_line_highlight,
+                    highlight: vec![],
+                    index: index + 1,
+                    has_open_multiline_comment: false,
                 },
             );
+
+            self.set_line_highlight(index + 1);
+
+            for line in self.lines.iter_mut().skip(index + 2) {
+                line.index += 1;
+            }
         }
 
         self.cursor_position.y += 1;
