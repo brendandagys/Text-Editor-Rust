@@ -149,220 +149,213 @@ impl EditorInstance {
         let num_chars = chars.clone().count();
         let mut highlight = vec![HighlightType::Normal; num_chars];
 
-        // TODO: if let Some
-        match self.syntax {
-            None => (),
-            Some(syntax) => {
-                let mut is_previous_char_separator = true;
-                let mut string_quote = None;
+        if let Some(syntax) = self.syntax {
+            let mut is_previous_char_separator = true;
+            let mut string_quote = None;
 
-                let current_line = &self.lines[line_index];
-                let mut is_part_of_multiline_comment =
-                    current_line.index > 0 && self.lines[line_index - 1].has_open_multiline_comment;
+            let current_line = &self.lines[line_index];
+            let mut is_part_of_multiline_comment =
+                current_line.index > 0 && self.lines[line_index - 1].has_open_multiline_comment;
 
-                let mut i = 0;
-                'outer: while i < num_chars {
-                    let char = match chars.next() {
-                        Some(char) => char,
-                        None => break,
-                    };
+            let mut i = 0;
+            'outer: while i < num_chars {
+                let char = match chars.next() {
+                    Some(char) => char,
+                    None => break,
+                };
 
-                    let previous_highlight = if i > 0 {
-                        &highlight[i - 1]
-                    } else {
-                        &HighlightType::Normal
-                    };
+                let previous_highlight = if i > 0 {
+                    &highlight[i - 1]
+                } else {
+                    &HighlightType::Normal
+                };
 
-                    if string_quote.is_none() {
-                        let mut single_line_comment_iterator =
-                            syntax.single_line_comment_start.chars();
+                if string_quote.is_none() {
+                    let mut single_line_comment_iterator = syntax.single_line_comment_start.chars();
 
-                        if !is_part_of_multiline_comment
-                            && chars.clone().count()
-                                >= single_line_comment_iterator.clone().count() - 1
+                    if !is_part_of_multiline_comment
+                        && chars.clone().count() >= single_line_comment_iterator.clone().count() - 1
+                    {
+                        if let Some(first_single_line_comment_char) =
+                            single_line_comment_iterator.next()
                         {
-                            if let Some(first_single_line_comment_char) =
-                                single_line_comment_iterator.next()
+                            if first_single_line_comment_char == char
+                                && chars
+                                    .clone()
+                                    .zip(single_line_comment_iterator)
+                                    .all(|(char, comment_char)| char == comment_char)
                             {
-                                if first_single_line_comment_char == char
-                                    && chars
-                                        .clone()
-                                        .zip(single_line_comment_iterator)
-                                        .all(|(char, comment_char)| char == comment_char)
-                                {
-                                    highlight[i..].fill(HighlightType::Comment);
-                                    break;
-                                }
-                            }
-                        }
-
-                        let mut multi_line_comment_start_iterator =
-                            syntax.multi_line_comment_start.chars();
-
-                        let multi_line_comment_start_length =
-                            multi_line_comment_start_iterator.clone().count();
-
-                        let mut multi_line_comment_end_iterator =
-                            syntax.multi_line_comment_end.chars();
-
-                        let multi_line_comment_end_length =
-                            multi_line_comment_end_iterator.clone().count();
-
-                        if is_part_of_multiline_comment {
-                            highlight[i] = HighlightType::MultiLineComment; // TODO: assign directly
-
-                            if let Some(first_multi_line_comment_end_char) =
-                                multi_line_comment_end_iterator.next()
-                            {
-                                if chars.clone().count() >= multi_line_comment_end_length - 1
-                                    && first_multi_line_comment_end_char == char
-                                    && chars
-                                        .clone()
-                                        .zip(multi_line_comment_end_iterator.clone())
-                                        .all(|(char, comment_char)| char == comment_char)
-                                {
-                                    highlight[i + 1..i + multi_line_comment_end_length]
-                                        .fill(HighlightType::MultiLineComment);
-
-                                    i += multi_line_comment_end_length;
-                                    is_part_of_multiline_comment = false;
-                                    is_previous_char_separator = true;
-
-                                    for _ in 0..multi_line_comment_end_length - 1 {
-                                        chars.next();
-                                    }
-
-                                    continue;
-                                }
-                            }
-
-                            i += 1;
-                            continue;
-                        } else if !is_part_of_multiline_comment
-                            && chars.clone().count() >= multi_line_comment_start_length - 1
-                        {
-                            if let Some(first_multi_line_comment_start_char) =
-                                multi_line_comment_start_iterator.next()
-                            {
-                                if first_multi_line_comment_start_char == char
-                                    && chars
-                                        .clone()
-                                        .zip(multi_line_comment_start_iterator.clone())
-                                        .all(|(char, comment_char)| char == comment_char)
-                                {
-                                    highlight[i..i + multi_line_comment_start_length]
-                                        .fill(HighlightType::MultiLineComment);
-
-                                    i += multi_line_comment_start_length;
-                                    is_part_of_multiline_comment = true;
-
-                                    for _ in 0..multi_line_comment_start_length - 1 {
-                                        chars.next();
-                                    }
-
-                                    continue;
-                                }
+                                highlight[i..].fill(HighlightType::Comment);
+                                break;
                             }
                         }
                     }
 
-                    if (syntax.flags & HIGHLIGHT_STRINGS) != 0 {
-                        match string_quote {
-                            Some(quote) => {
-                                highlight[i] = HighlightType::String;
+                    let mut multi_line_comment_start_iterator =
+                        syntax.multi_line_comment_start.chars();
 
-                                if char == '\\' {
-                                    highlight[i + 1] = HighlightType::String;
-                                    i += 2;
-                                    chars.next();
-                                    continue;
-                                }
+                    let multi_line_comment_start_length =
+                        multi_line_comment_start_iterator.clone().count();
 
-                                if char == quote {
-                                    string_quote = None;
-                                }
+                    let mut multi_line_comment_end_iterator = syntax.multi_line_comment_end.chars();
 
-                                i += 1;
+                    let multi_line_comment_end_length =
+                        multi_line_comment_end_iterator.clone().count();
+
+                    if is_part_of_multiline_comment {
+                        highlight[i] = HighlightType::MultiLineComment; // TODO: assign directly
+
+                        if let Some(first_multi_line_comment_end_char) =
+                            multi_line_comment_end_iterator.next()
+                        {
+                            if chars.clone().count() >= multi_line_comment_end_length - 1
+                                && first_multi_line_comment_end_char == char
+                                && chars
+                                    .clone()
+                                    .zip(multi_line_comment_end_iterator.clone())
+                                    .all(|(char, comment_char)| char == comment_char)
+                            {
+                                highlight[i + 1..i + multi_line_comment_end_length]
+                                    .fill(HighlightType::MultiLineComment);
+
+                                i += multi_line_comment_end_length;
+                                is_part_of_multiline_comment = false;
                                 is_previous_char_separator = true;
+
+                                for _ in 0..multi_line_comment_end_length - 1 {
+                                    chars.next();
+                                }
+
                                 continue;
                             }
-                            None => {
-                                if char == '"' || char == '\'' {
-                                    string_quote = Some(char);
-                                    highlight[i] = HighlightType::String;
-                                    i += 1;
-                                    continue;
+                        }
+
+                        i += 1;
+                        continue;
+                    } else if !is_part_of_multiline_comment
+                        && chars.clone().count() >= multi_line_comment_start_length - 1
+                    {
+                        if let Some(first_multi_line_comment_start_char) =
+                            multi_line_comment_start_iterator.next()
+                        {
+                            if first_multi_line_comment_start_char == char
+                                && chars
+                                    .clone()
+                                    .zip(multi_line_comment_start_iterator.clone())
+                                    .all(|(char, comment_char)| char == comment_char)
+                            {
+                                highlight[i..i + multi_line_comment_start_length]
+                                    .fill(HighlightType::MultiLineComment);
+
+                                i += multi_line_comment_start_length;
+                                is_part_of_multiline_comment = true;
+
+                                for _ in 0..multi_line_comment_start_length - 1 {
+                                    chars.next();
                                 }
+
+                                continue;
                             }
                         }
                     }
+                }
 
-                    if (syntax.flags & HIGHLIGHT_NUMBERS) != 0 {
-                        if char.is_ascii_digit()
-                            && (is_previous_char_separator
-                                || previous_highlight == &HighlightType::Number)
-                            || (char == '.' && previous_highlight == &HighlightType::Number)
-                        {
-                            highlight[i] = HighlightType::Number;
+                if (syntax.flags & HIGHLIGHT_STRINGS) != 0 {
+                    match string_quote {
+                        Some(quote) => {
+                            highlight[i] = HighlightType::String;
+
+                            if char == '\\' {
+                                highlight[i + 1] = HighlightType::String;
+                                i += 2;
+                                chars.next();
+                                continue;
+                            }
+
+                            if char == quote {
+                                string_quote = None;
+                            }
+
                             i += 1;
-                            is_previous_char_separator = false;
+                            is_previous_char_separator = true;
                             continue;
                         }
+                        None => {
+                            if char == '"' || char == '\'' {
+                                string_quote = Some(char);
+                                highlight[i] = HighlightType::String;
+                                i += 1;
+                                continue;
+                            }
+                        }
                     }
+                }
 
-                    if is_previous_char_separator {
-                        for (k, keyword) in syntax.keywords.iter().chain(syntax.types).enumerate() {
-                            let mut keyword_iterator = keyword.chars();
-                            let keyword_length = keyword.chars().count();
+                if (syntax.flags & HIGHLIGHT_NUMBERS) != 0 {
+                    if char.is_ascii_digit()
+                        && (is_previous_char_separator
+                            || previous_highlight == &HighlightType::Number)
+                        || (char == '.' && previous_highlight == &HighlightType::Number)
+                    {
+                        highlight[i] = HighlightType::Number;
+                        i += 1;
+                        is_previous_char_separator = false;
+                        continue;
+                    }
+                }
 
-                            if chars.clone().count() >= keyword_length - 1 {
-                                if let Some(keyword_first_char) = keyword_iterator.next() {
-                                    if keyword_first_char == char
-                                        && chars
-                                            .clone()
-                                            .zip(keyword_iterator)
-                                            .all(|(char, keyword_char)| char == keyword_char)
-                                        && match chars.clone().nth(keyword_length - 1) {
-                                            Some(char) => EditorInstance::is_separator(char),
-                                            None => true,
-                                        }
-                                    {
-                                        for j in i..i + keyword_length {
-                                            highlight[j] = if k >= syntax.keywords.len() {
-                                                HighlightType::Type
-                                            } else {
-                                                HighlightType::Keyword
-                                            };
+                if is_previous_char_separator {
+                    for (k, keyword) in syntax.keywords.iter().chain(syntax.types).enumerate() {
+                        let mut keyword_iterator = keyword.chars();
+                        let keyword_length = keyword.chars().count();
 
-                                            if j < i + keyword_length - 1 {
-                                                chars.next();
-                                            }
-                                        }
-
-                                        i += keyword_length;
-                                        is_previous_char_separator = false;
-                                        continue 'outer;
+                        if chars.clone().count() >= keyword_length - 1 {
+                            if let Some(keyword_first_char) = keyword_iterator.next() {
+                                if keyword_first_char == char
+                                    && chars
+                                        .clone()
+                                        .zip(keyword_iterator)
+                                        .all(|(char, keyword_char)| char == keyword_char)
+                                    && match chars.clone().nth(keyword_length - 1) {
+                                        Some(char) => EditorInstance::is_separator(char),
+                                        None => true,
                                     }
+                                {
+                                    for j in i..i + keyword_length {
+                                        highlight[j] = if k >= syntax.keywords.len() {
+                                            HighlightType::Type
+                                        } else {
+                                            HighlightType::Keyword
+                                        };
+
+                                        if j < i + keyword_length - 1 {
+                                            chars.next();
+                                        }
+                                    }
+
+                                    i += keyword_length;
+                                    is_previous_char_separator = false;
+                                    continue 'outer;
                                 }
                             }
                         }
                     }
-
-                    is_previous_char_separator = EditorInstance::is_separator(char);
-                    i += 1;
                 }
 
-                let did_is_part_of_multiline_comment_change =
-                    current_line.has_open_multiline_comment != is_part_of_multiline_comment;
-
-                self.lines[line_index].has_open_multiline_comment = is_part_of_multiline_comment;
-
-                if did_is_part_of_multiline_comment_change {
-                    self.set_line_highlight(line_index + 1);
-                }
-
-                self.lines[line_index].highlight = highlight; // TODO: assign directly
+                is_previous_char_separator = EditorInstance::is_separator(char);
+                i += 1;
             }
+
+            let did_is_part_of_multiline_comment_change =
+                current_line.has_open_multiline_comment != is_part_of_multiline_comment;
+
+            self.lines[line_index].has_open_multiline_comment = is_part_of_multiline_comment;
+
+            if did_is_part_of_multiline_comment_change {
+                self.set_line_highlight(line_index + 1);
+            }
+
+            self.lines[line_index].highlight = highlight; // TODO: assign directly
         }
     }
 
