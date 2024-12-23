@@ -203,7 +203,7 @@ impl EditorInstance {
                         multi_line_comment_end_iterator.clone().count();
 
                     if is_part_of_multiline_comment {
-                        highlight[i] = HighlightType::MultiLineComment; // TODO: assign directly
+                        highlight[i] = HighlightType::MultiLineComment;
 
                         if let Some(first_multi_line_comment_end_char) =
                             multi_line_comment_end_iterator.next()
@@ -355,7 +355,7 @@ impl EditorInstance {
                 self.set_line_highlight(line_index + 1);
             }
 
-            self.lines[line_index].highlight = highlight; // TODO: assign directly
+            self.lines[line_index].highlight = highlight;
         }
     }
 
@@ -740,12 +740,7 @@ impl EditorInstance {
     fn insert_character_into_line(&mut self, character: char) -> () {
         let index = self.cursor_position.y as usize;
         let line = &mut self.lines[index];
-
-        line.text.insert(
-            min(self.cursor_position.x as usize, line.text.chars().count()), // TODO: can this be simplified?
-            character,
-        );
-
+        line.text.insert(self.cursor_position.x as usize, character);
         line.render = EditorInstance::get_render_text_from_text(&line.text);
         self.set_line_highlight(index);
     }
