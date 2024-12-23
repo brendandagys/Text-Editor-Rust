@@ -19,6 +19,8 @@ pub struct Syntax {
     pub keywords: &'static [&'static str],
     pub types: &'static [&'static str],
     pub single_line_comment_start: &'static str,
+    pub multi_line_comment_start: &'static str,
+    pub multi_line_comment_end: &'static str,
     pub flags: i32,
 }
 
@@ -36,5 +38,7 @@ pub static SYNTAX_CONFIGURATIONS: &'static [Syntax] = &[Syntax {
         "int", "long", "double", "float", "char", "unsigned", "signed", "void",
     ],
     single_line_comment_start: "//",
+    multi_line_comment_start: "/*",
+    multi_line_comment_end: "*/",
     flags: HIGHLIGHT_NUMBERS | HIGHLIGHT_STRINGS,
 }];
