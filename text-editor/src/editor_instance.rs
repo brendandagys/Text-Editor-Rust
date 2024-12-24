@@ -281,7 +281,12 @@ impl EditorInstance {
                             continue;
                         }
                         None => {
-                            if char == '"' || char == '\'' {
+                            if char == '"'
+                                || (char == '\''
+                                    && (i == 0
+                                        || self.lines[line_index].render.chars().nth(i - 1)
+                                            != Some('&')))
+                            {
                                 current_string_quote = Some(char);
                                 highlight[i] = HighlightType::String;
                                 i += 1;
@@ -298,7 +303,7 @@ impl EditorInstance {
                         || (char == '.'
                             && previous_highlight == &HighlightType::Number
                             // Rust: 3..
-                            && chars.clone().next().unwrap_or('.') != '.')
+                            && chars.clone().next() != Some('.'))
                     {
                         highlight[i] = HighlightType::Number;
                         i += 1;
