@@ -317,7 +317,9 @@ impl EditorInstance {
                         let mut keyword_iterator = keyword.chars();
                         let keyword_length = keyword.chars().count();
 
-                        if chars.clone().count() >= keyword_length - 1 {
+                        if self.lines[line_index].render.chars().nth(i - 1) != Some('_')
+                            && chars.clone().count() >= keyword_length - 1
+                        {
                             if let Some(keyword_first_char) = keyword_iterator.next() {
                                 if keyword_first_char == char
                                     && chars
