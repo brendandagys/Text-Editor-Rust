@@ -998,6 +998,29 @@ impl EditorInstance {
         }
     }
 
+    fn add_welcome_message_to_buffer(&self, buffer: &mut String) -> () {
+        let mut message = format!("Brendan's text editor --- version {VERSION}");
+        message.truncate(self.window_size.columns as usize);
+
+        let message_length: u16 =
+            message.chars().count().try_into().expect(
+                "Could not convert welcome message length into a u16 during screen refresh",
+            );
+
+        let mut padding = (self.window_size.columns - message_length) / 2;
+
+        if padding > 0 {
+            buffer.push('~');
+            padding -= 1;
+        }
+
+        for _ in 0..padding {
+            buffer.push(' ');
+        }
+
+        buffer.push_str(&message);
+    }
+
     /// Uses a String as a buffer to store all lines, before calling `write` once
     /// Prints a welcome message in the middle of the screen using its row/column count
     pub fn draw_rows(&self) -> () {
@@ -1008,25 +1031,7 @@ impl EditorInstance {
 
             if scrolled_to_row as usize >= self.lines.len() {
                 if self.lines.len() == 0 && row == self.window_size.rows / 3 {
-                    let mut message = format!("Brendan's text editor --- version {VERSION}");
-                    message.truncate(self.window_size.columns as usize);
-
-                    let message_length: u16 = message.chars().count().try_into().expect(
-                        "Could not convert welcome message length into a u16 during screen refresh",
-                    );
-
-                    let mut padding = (self.window_size.columns - message_length) / 2;
-
-                    if padding > 0 {
-                        buffer.push('~');
-                        padding -= 1;
-                    }
-
-                    for _ in 0..padding {
-                        buffer.push(' ');
-                    }
-
-                    buffer.push_str(&message);
+                    self.add_welcome_message_to_buffer(&mut buffer);
                 } else {
                     buffer.push('~');
                 }
