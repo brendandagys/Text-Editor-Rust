@@ -354,9 +354,9 @@ impl EditorInstance {
             if did_is_part_of_multiline_comment_change {
                 self.set_line_highlight(line_index + 1);
             }
-
-            self.lines[line_index].highlight = highlight;
         }
+
+        self.lines[line_index].highlight = highlight;
     }
 
     fn get_color_from_highlight_type(highlight_type: &HighlightType) -> i8 {
