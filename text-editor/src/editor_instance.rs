@@ -151,7 +151,7 @@ impl EditorInstance {
 
         if let Some(syntax) = self.syntax {
             let mut is_previous_char_separator = true;
-            let mut string_quote = None;
+            let mut current_string_quote = None;
 
             let current_line = &self.lines[line_index];
             let mut is_part_of_multiline_comment =
@@ -170,7 +170,7 @@ impl EditorInstance {
                     &HighlightType::Normal
                 };
 
-                if string_quote.is_none() {
+                if current_string_quote.is_none() {
                     let mut single_line_comment_iterator = syntax.single_line_comment_start.chars();
 
                     if !is_part_of_multiline_comment
@@ -261,7 +261,7 @@ impl EditorInstance {
                 }
 
                 if (syntax.flags & HIGHLIGHT_STRINGS) != 0 {
-                    match string_quote {
+                    match current_string_quote {
                         Some(quote) => {
                             highlight[i] = HighlightType::String;
 
@@ -273,7 +273,7 @@ impl EditorInstance {
                             }
 
                             if char == quote {
-                                string_quote = None;
+                                current_string_quote = None;
                             }
 
                             i += 1;
@@ -282,7 +282,7 @@ impl EditorInstance {
                         }
                         None => {
                             if char == '"' || char == '\'' {
-                                string_quote = Some(char);
+                                current_string_quote = Some(char);
                                 highlight[i] = HighlightType::String;
                                 i += 1;
                                 continue;
