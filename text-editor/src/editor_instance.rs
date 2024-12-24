@@ -124,7 +124,7 @@ impl EditorInstance {
 
         for char in text.chars() {
             if char == '\t' {
-                render.push(char);
+                render.push(' ');
                 render_index += 1;
 
                 while render_index % TAB_SIZE != 0 {
