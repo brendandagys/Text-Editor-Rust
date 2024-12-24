@@ -361,7 +361,7 @@ impl EditorInstance {
 
             self.lines[line_index].has_open_multiline_comment = is_part_of_multiline_comment;
 
-            if did_is_part_of_multiline_comment_change {
+            if did_is_part_of_multiline_comment_change && line_index < self.lines.len() - 1 {
                 self.set_line_highlight(line_index + 1);
             }
         }
