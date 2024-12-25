@@ -7,25 +7,25 @@ use std::io::{self, Write};
 
 pub fn move_cursor_to_top_left() -> () {
     // H: Cursor Position, e.g. <esc>[1;1H]
-    write!(io::stdout(), "\x1b[H").expect("Error positioning cursor at top-left before draw");
+    write!(io::stdout(), "\x1b[H").expect("Failed to position cursor at top-left before draw");
     flush_stdout();
 }
 
 pub fn clear_display() -> () {
     // J: Erase in Display, 2: clear entire screen
-    write!(io::stdout(), "\x1b[2J").expect("Error clearing screen");
+    write!(io::stdout(), "\x1b[2J").expect("Failed to clear screen");
     flush_stdout();
 }
 
 fn hide_cursor() -> () {
     // l: Reset mode
-    write!(io::stdout(), "\x1b[?25l").expect("Error hiding cursor");
+    write!(io::stdout(), "\x1b[?25l").expect("Failed to hide cursor");
     flush_stdout();
 }
 
 fn show_cursor() -> () {
     // h: Set mode
-    write!(io::stdout(), "\x1b[?25h").expect("Error hiding cursor");
+    write!(io::stdout(), "\x1b[?25h").expect("Failed to show cursor");
     flush_stdout();
 }
 

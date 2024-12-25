@@ -6,14 +6,14 @@ use termios::{
 };
 
 pub fn get_populated_termios() -> Termios {
-    Termios::from_fd(io::stdin().as_raw_fd()).expect("Unable to get current terminal configuration")
+    Termios::from_fd(io::stdin().as_raw_fd()).expect("Failed to get current terminal configuration")
 }
 
 pub fn disable_raw_mode(original_termios: Termios) -> () {
     let stdin_fd = io::stdin().as_raw_fd();
 
     tcsetattr(stdin_fd, TCSAFLUSH, &original_termios)
-        .expect("Unable to reset terminal settings (disable raw mode)")
+        .expect("Failed to reset terminal settings (disable raw mode)")
 }
 
 pub fn enable_raw_mode(mut termios: Termios) -> Termios {
@@ -52,7 +52,7 @@ pub fn enable_raw_mode(mut termios: Termios) -> Termios {
     termios.c_cc[VTIME] = 1; // Time-out (1/10 second)
 
     tcsetattr(stdin_fd, TCSAFLUSH, &termios)
-        .expect("Unable to set terminal settings (enable raw mode)");
+        .expect("Failed to set terminal settings (enable raw mode)");
 
     termios
 }

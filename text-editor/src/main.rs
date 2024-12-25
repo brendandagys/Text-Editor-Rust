@@ -41,7 +41,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     loop {
         let window_size = *window_size
             .read()
-            .expect("Could not get window size read lock");
+            .expect("Failed to obtain window size read lock");
 
         if window_size != active_editor.window_size {
             active_editor.window_size = window_size;

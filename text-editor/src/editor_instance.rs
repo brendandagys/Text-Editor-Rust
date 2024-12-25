@@ -532,7 +532,7 @@ impl EditorInstance {
                 self.cursor_position.x = self
                     .num_columns_for_line_number
                     .try_into()
-                    .expect("Failed to convert new cursor x-position usize into u16");
+                    .expect("Failed to convert new cursor x-position usize to u16");
             }
             Key::Custom(EditorKey::End) => {
                 if (self.cursor_position.y as usize) < self.lines.len() {
@@ -542,7 +542,7 @@ impl EditorInstance {
                         .chars()
                         .count()
                         .try_into()
-                        .expect("Unable to convert line length usize into a u16");
+                        .expect("Failed to convert line length usize to u16");
 
                     let line_number_columns_offset: u16 = self
                         .num_columns_for_line_number
@@ -649,7 +649,7 @@ impl EditorInstance {
                         .chars()
                         .count()
                         .try_into()
-                        .expect("Failed to convert line length usize into a u16");
+                        .expect("Failed to convert line length usize to u16");
 
                     let line_number_columns_offset: u16 = self
                         .num_columns_for_line_number
@@ -705,7 +705,7 @@ impl EditorInstance {
             self.cursor_position.x,
             line_length
                 .try_into()
-                .expect("Failed to convert line length usize into a u16"),
+                .expect("Failed to convert line length usize to u16"),
         );
     }
 
@@ -943,7 +943,7 @@ impl EditorInstance {
         self.cursor_position.x = self
             .num_columns_for_line_number
             .try_into()
-            .expect("Failed to convert new cursor x-position usize into u16");
+            .expect("Failed to convert new cursor x-position usize to u16");
 
         self.edited = true;
     }
@@ -1035,7 +1035,7 @@ impl EditorInstance {
                     .lines
                     .len()
                     .try_into()
-                    .expect("Failed to convert line length usize to u32"); // TODO: common wording
+                    .expect("Failed to convert line length usize to u32");
 
                 self.saved_highlight = Some(SavedHighlight {
                     line_index: current_line_index as usize,
@@ -1071,10 +1071,11 @@ impl EditorInstance {
         let mut message = format!("Brendan's text editor --- version {VERSION}");
         message.truncate(self.window_size.columns as usize);
 
-        let message_length: u16 =
-            message.chars().count().try_into().expect(
-                "Failed to convert welcome message length into a u16 during screen refresh",
-            );
+        let message_length: u16 = message
+            .chars()
+            .count()
+            .try_into()
+            .expect("Failed to convert welcome message length to u16 during screen refresh");
 
         let mut padding = (self.window_size.columns - message_length) / 2;
 
@@ -1225,7 +1226,7 @@ impl EditorInstance {
             buffer.push_str("\x1b[K\r\n"); // K: Erase In Line (2: whole, 1: to left, 0: to right [default])
         }
 
-        write!(io::stdout(), "{}", buffer).expect("Error writing to stdout while drawing rows");
+        write!(io::stdout(), "{}", buffer).expect("Failed to write to stdout while drawing rows");
         flush_stdout();
     }
 
@@ -1272,7 +1273,7 @@ impl EditorInstance {
         buffer.push_str("\x1b[m\r\n"); // Reset text formatting and add newline for status message
 
         write!(io::stdout(), "{}", buffer)
-            .expect("Error writing to stdout while drawing status bar");
+            .expect("Failed to write to stdout while drawing status bar");
         flush_stdout();
     }
 
@@ -1296,7 +1297,7 @@ impl EditorInstance {
         }
 
         write!(io::stdout(), "{buffer}")
-            .expect("Error writing to stdout while drawing status message bar");
+            .expect("Failed to write to stdout while drawing status message bar");
         flush_stdout();
     }
 }

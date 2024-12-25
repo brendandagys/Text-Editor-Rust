@@ -72,15 +72,15 @@ fn get_cursor_position() -> WindowSize {
 
     let rows = parts
         .next()
-        .expect("Response from Cursor Position Report could not be parsed")
+        .expect("Failed to parse response from Cursor Position Report")
         .parse::<u32>()
-        .expect("Failed to parse row into a u16");
+        .expect("Failed to parse row to u16");
 
     let columns = parts
         .next()
-        .expect("Response from Cursor Position Report could not be parsed")
+        .expect("Failed to parse response from Cursor Position Report")
         .parse::<u16>()
-        .expect("Failed to parse col into a u16");
+        .expect("Failed to parse col to u16");
 
     WindowSize { rows, columns }
 }
@@ -131,7 +131,7 @@ pub fn watch_for_window_size_change(window_size_clone: Arc<RwLock<WindowSize>>) 
         for _ in signals.forever() {
             *window_size_clone
                 .write()
-                .expect("Could not get write lock for window size") = get_window_size();
+                .expect("Failed to obtain window size write lock") = get_window_size();
         }
     });
 }
@@ -155,6 +155,6 @@ pub fn get_file_name_from_path(file_path: &str) -> String {
     file_path
         .split('/')
         .last()
-        .expect("Error parsing file from provided file path")
+        .expect("Failed to parse file from provided file path")
         .into()
 }
