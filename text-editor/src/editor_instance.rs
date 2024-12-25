@@ -116,8 +116,13 @@ impl EditorInstance {
         }
     }
 
-    fn get_current_line(&self) -> &Line {
-        &self.lines[self.cursor_position.y as usize] // TODO: is this always safe?
+    fn get_current_line(&self) -> Option<&Line> {
+        let index = self.cursor_position.y as usize;
+
+        match index {
+            i if i < self.lines.len() => Some(&self.lines[i]),
+            _ => None,
+        }
     }
 
     fn get_render_text_from_text(text: &str) -> String {
@@ -532,9 +537,8 @@ impl EditorInstance {
                     .expect("Failed to convert new cursor x-position usize to u16");
             }
             Key::Custom(EditorKey::End) => {
-                if (self.cursor_position.y as usize) < self.lines.len() {
-                    let num_characters_in_line: u16 = self
-                        .get_current_line()
+                if let Some(current_line) = self.get_current_line() {
+                    let num_characters_in_line: u16 = current_line
                         .text
                         .chars()
                         .count()
@@ -627,12 +631,6 @@ impl EditorInstance {
     }
 
     pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
-        let current_line = if (self.cursor_position.y as usize) < self.lines.len() {
-            Some(self.get_current_line())
-        } else {
-            None
-        };
-
         match direction {
             CursorMovement::Left => {
                 if self.cursor_position.x as usize > self.num_columns_for_line_number {
@@ -642,6 +640,7 @@ impl EditorInstance {
 
                     let num_characters_in_previous_line: u16 = self
                         .get_current_line()
+                        .expect("Index error while retrieving previous line")
                         .text
                         .chars()
                         .count()
@@ -668,7 +667,7 @@ impl EditorInstance {
                 }
             }
             CursorMovement::Right => {
-                if let Some(current_line) = current_line {
+                if let Some(current_line) = self.get_current_line() {
                     if (self.cursor_position.x as usize)
                         < current_line.text.chars().count() + self.num_columns_for_line_number
                     {
@@ -684,12 +683,7 @@ impl EditorInstance {
             }
         }
 
-        let current_line_after_cursor_move = if (self.cursor_position.y as usize) < self.lines.len()
-        {
-            Some(self.get_current_line())
-        } else {
-            None
-        };
+        let current_line_after_cursor_move = self.get_current_line();
 
         let line_length = current_line_after_cursor_move.map_or(0, |line| {
             line.text.chars().count() + self.num_columns_for_line_number
@@ -717,8 +711,12 @@ impl EditorInstance {
     }
 
     fn cursor_x_to_render_x(&self, cursor_x_position: u16) -> u16 {
+        let current_line = self
+            .get_current_line()
+            .expect("Index error while retrieving current line");
+
         (0..cursor_x_position).fold(0, |acc, x| {
-            match self.get_current_line().text.chars().nth(x as usize) {
+            match current_line.text.chars().nth(x as usize) {
                 Some(char) if char == '\t' => acc + TAB_SIZE as u16 - (acc % TAB_SIZE as u16),
                 _ => acc + 1,
             }
@@ -729,12 +727,15 @@ impl EditorInstance {
         let mut calculated_render_x_position = 0;
         let mut calculated_x_position = 0;
 
-        while (calculated_x_position as usize) < self.get_current_line().text.chars().count() {
-            let char = self
-                .get_current_line()
-                .text
-                .chars()
-                .nth(calculated_x_position as usize);
+        let current_line = self
+            .get_current_line()
+            .expect("Index error while retrieving current line");
+
+        let num_characters_in_line = current_line.text.chars().count();
+        let mut text_iterator = current_line.text.chars();
+
+        while (calculated_x_position as usize) < num_characters_in_line {
+            let char = text_iterator.next();
 
             match char {
                 Some(char) if char == '\t' => {
@@ -862,7 +863,11 @@ impl EditorInstance {
 
             self.cursor_position.x = previous_line_length + line_number_columns_offset;
 
-            let string_to_append = self.get_current_line().text.clone();
+            let string_to_append = self
+                .get_current_line()
+                .expect("Index error while retrieving current line")
+                .text
+                .clone();
 
             self.append_string_to_previous_line(&string_to_append);
             self.lines.remove(line_index);
