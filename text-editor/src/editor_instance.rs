@@ -395,10 +395,7 @@ impl EditorInstance {
             None => return,
         };
 
-        let file_extension = match file_name.rfind('.') {
-            Some(index) => Some(&file_name[index..]),
-            None => None,
-        };
+        let file_extension = file_name.rfind('.').map(|index| &file_name[index..]);
 
         for configuration in SYNTAX_CONFIGURATIONS {
             for file_match in configuration.file_match {
@@ -676,9 +673,7 @@ impl EditorInstance {
                         < current_line.text.chars().count() + self.num_columns_for_line_number
                     {
                         self.cursor_position.x += 1;
-                    } else if self.cursor_position.x as usize // TODO: simplify?
-                        == current_line.text.chars().count() + self.num_columns_for_line_number
-                    {
+                    } else {
                         self.cursor_position.y += 1;
                         self.cursor_position.x = self
                             .num_columns_for_line_number
@@ -696,10 +691,9 @@ impl EditorInstance {
             None
         };
 
-        let line_length = match current_line_after_cursor_move {
-            Some(line) => line.text.chars().count() + self.num_columns_for_line_number,
-            None => 0,
-        };
+        let line_length = current_line_after_cursor_move.map_or(0, |line| {
+            line.text.chars().count() + self.num_columns_for_line_number
+        });
 
         self.cursor_position.x = min(
             self.cursor_position.x,
@@ -751,7 +745,7 @@ impl EditorInstance {
             }
 
             if calculated_render_x_position > cursor_render_x_position {
-                return calculated_x_position as u16;
+                return calculated_x_position;
             }
 
             calculated_x_position += 1;
@@ -1239,10 +1233,7 @@ impl EditorInstance {
 
         let mut status_bar_content = format!(
             " {:.20} - {} lines{} ",
-            match &self.file {
-                Some(file) => &file.name,
-                None => "[New File]",
-            },
+            self.file.as_ref().map_or("[New File]", |file| &file.name),
             self.lines.len(),
             if self.edited { " (modified)" } else { "" }
         );
@@ -1255,10 +1246,9 @@ impl EditorInstance {
 
         let mut cursor_position_information = format!(
             "{}{}/{} ",
-            match &self.syntax {
-                Some(syntax) => format!("{} ", syntax.file_type),
-                None => "".to_string(),
-            },
+            self.syntax
+                .as_ref()
+                .map_or(String::new(), |syntax| format!("{} ", syntax.file_type)),
             self.cursor_position.y + 1,
             self.lines.len()
         );
