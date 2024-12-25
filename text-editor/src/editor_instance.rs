@@ -785,19 +785,15 @@ impl EditorInstance {
     }
 
     fn insert_character_into_line(&mut self, character: char) -> () {
-        let index = self.cursor_position.y as usize;
-        let line = &mut self.lines[index];
+        let line_index = self.cursor_position.y as usize;
+        let line = &mut self.lines[line_index];
+
         line.text.insert(
-            if self.num_columns_for_line_number > self.cursor_position.x as usize {
-                // TODO: replace this and others with saturating sub
-                0
-            } else {
-                self.cursor_position.x as usize - self.num_columns_for_line_number
-            },
+            (self.cursor_position.x as usize).saturating_sub(self.num_columns_for_line_number),
             character,
         );
         line.render = EditorInstance::get_render_text_from_text(&line.text);
-        self.set_line_highlight(index);
+        self.set_line_highlight(line_index);
     }
 
     fn insert_character(&mut self, character: char) -> () {
