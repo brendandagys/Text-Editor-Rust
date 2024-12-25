@@ -1,6 +1,6 @@
 use crate::{
     globals::{
-        Syntax, HIGHLIGHT_NUMBERS, HIGHLIGHT_STRINGS, QUIT_CONFIRMATION_COUNT,
+        Syntax, HIGHLIGHT_NUMBERS, HIGHLIGHT_STRINGS, LINE_NUMBER_GAP, QUIT_CONFIRMATION_COUNT,
         SYNTAX_CONFIGURATIONS, TAB_SIZE, VERSION,
     },
     input::{EditorKey, Key},
@@ -10,7 +10,7 @@ use crate::{
     WindowSize,
 };
 use std::{
-    cmp::min,
+    cmp::{max, min},
     fs::{self, OpenOptions},
     io::{self, BufRead, BufReader, Write},
     os::unix::fs::OpenOptionsExt,
@@ -88,6 +88,7 @@ pub struct EditorInstance {
     search_direction: SearchDirection,
     saved_highlight: Option<SavedHighlight>,
     syntax: Option<&'static Syntax>,
+    num_columns_for_line_number: usize,
 }
 
 impl EditorInstance {
@@ -111,11 +112,12 @@ impl EditorInstance {
             previous_search_match_line_index: None,
             search_direction: SearchDirection::Forward,
             saved_highlight: None,
+            num_columns_for_line_number: 0,
         }
     }
 
     fn get_current_line(&self) -> &Line {
-        &self.lines[self.cursor_position.y as usize]
+        &self.lines[self.cursor_position.y as usize] // TODO: is this always safe?
     }
 
     fn get_render_text_from_text(text: &str) -> String {
@@ -436,6 +438,7 @@ impl EditorInstance {
                 has_open_multiline_comment: false,
             });
 
+            self.set_num_columns_for_line_number();
             self.set_line_highlight(index);
         }
 
@@ -525,16 +528,28 @@ impl EditorInstance {
             Key::Custom(EditorKey::ArrowUp) => self.move_cursor(CursorMovement::Up),
             Key::Custom(EditorKey::ArrowRight) => self.move_cursor(CursorMovement::Right),
 
-            Key::Custom(EditorKey::Home) => self.cursor_position.x = 0,
+            Key::Custom(EditorKey::Home) => {
+                self.cursor_position.x = self
+                    .num_columns_for_line_number
+                    .try_into()
+                    .expect("Failed to convert new cursor x-position usize into u16");
+            }
             Key::Custom(EditorKey::End) => {
                 if (self.cursor_position.y as usize) < self.lines.len() {
-                    self.cursor_position.x = self
+                    let num_characters_in_line: u16 = self
                         .get_current_line()
                         .text
                         .chars()
                         .count()
                         .try_into()
-                        .expect("Failed to convert current line length into x cursor position");
+                        .expect("Unable to convert line length usize into a u16");
+
+                    let line_number_columns_offset: u16 = self
+                        .num_columns_for_line_number
+                        .try_into()
+                        .expect("Failed to convert usize to u16");
+
+                    self.cursor_position.x = num_characters_in_line + line_number_columns_offset;
                 }
             }
 
@@ -556,7 +571,13 @@ impl EditorInstance {
                 }
             }
             Key::Custom(EditorKey::PageDown) => {
-                self.cursor_position.y = self.line_scrolled_to + self.window_size.rows - 1;
+                self.cursor_position.y = min(
+                    self.lines
+                        .len()
+                        .try_into()
+                        .expect("Failed to convert usize to u16"),
+                    self.line_scrolled_to + self.window_size.rows - 1,
+                );
 
                 for _ in 0..self.window_size.rows {
                     self.move_cursor(CursorMovement::Down);
@@ -617,17 +638,26 @@ impl EditorInstance {
 
         match direction {
             CursorMovement::Left => {
-                if self.cursor_position.x > 0 {
+                if self.cursor_position.x as usize > self.num_columns_for_line_number {
                     self.cursor_position.x -= 1;
                 } else if self.cursor_position.y > 0 {
                     self.cursor_position.y -= 1;
-                    self.cursor_position.x = self
+
+                    let num_characters_in_previous_line: u16 = self
                         .get_current_line()
                         .text
                         .chars()
                         .count()
                         .try_into()
-                        .expect("Unable to convert line length usize into a u16");
+                        .expect("Failed to convert line length usize into a u16");
+
+                    let line_number_columns_offset: u16 = self
+                        .num_columns_for_line_number
+                        .try_into()
+                        .expect("Failed to convert usize to u16");
+
+                    self.cursor_position.x =
+                        num_characters_in_previous_line + line_number_columns_offset
                 }
             }
             CursorMovement::Down => {
@@ -642,11 +672,18 @@ impl EditorInstance {
             }
             CursorMovement::Right => {
                 if let Some(current_line) = current_line {
-                    if (self.cursor_position.x as usize) < current_line.text.chars().count() {
+                    if (self.cursor_position.x as usize)
+                        < current_line.text.chars().count() + self.num_columns_for_line_number
+                    {
                         self.cursor_position.x += 1;
-                    } else if self.cursor_position.x as usize == current_line.text.chars().count() {
+                    } else if self.cursor_position.x as usize // TODO: simplify?
+                        == current_line.text.chars().count() + self.num_columns_for_line_number
+                    {
                         self.cursor_position.y += 1;
-                        self.cursor_position.x = 0;
+                        self.cursor_position.x = self
+                            .num_columns_for_line_number
+                            .try_into()
+                            .expect("Failed to convert usize to u16");
                     }
                 }
             }
@@ -660,7 +697,7 @@ impl EditorInstance {
         };
 
         let line_length = match current_line_after_cursor_move {
-            Some(line) => line.text.chars().count(),
+            Some(line) => line.text.chars().count() + self.num_columns_for_line_number,
             None => 0,
         };
 
@@ -668,7 +705,7 @@ impl EditorInstance {
             self.cursor_position.x,
             line_length
                 .try_into()
-                .expect("Unable to convert line length usize into a u16"),
+                .expect("Failed to convert line length usize into a u16"),
         );
     }
 
@@ -724,11 +761,16 @@ impl EditorInstance {
     }
 
     pub fn scroll(&mut self) -> () {
+        let num_columns_for_line_number: u16 = self
+            .num_columns_for_line_number
+            .try_into()
+            .expect("Failed to convert usize to u16");
+
         self.cursor_position.render_x = if (self.cursor_position.y as usize) < self.lines.len() {
-            self.cursor_x_to_render_x(self.cursor_position.x)
+            self.cursor_x_to_render_x(self.cursor_position.x - num_columns_for_line_number)
         } else {
             0
-        };
+        } + num_columns_for_line_number;
 
         if self.cursor_position.y < self.line_scrolled_to {
             self.line_scrolled_to = self.cursor_position.y;
@@ -738,8 +780,8 @@ impl EditorInstance {
             self.line_scrolled_to = self.cursor_position.y - self.window_size.rows + 1;
         }
 
-        if self.cursor_position.render_x < self.column_scrolled_to {
-            self.column_scrolled_to = self.cursor_position.render_x;
+        if self.cursor_position.render_x - num_columns_for_line_number < self.column_scrolled_to {
+            self.column_scrolled_to = self.cursor_position.render_x - num_columns_for_line_number;
         }
 
         if self.cursor_position.render_x >= self.column_scrolled_to + self.window_size.columns {
@@ -750,7 +792,15 @@ impl EditorInstance {
     fn insert_character_into_line(&mut self, character: char) -> () {
         let index = self.cursor_position.y as usize;
         let line = &mut self.lines[index];
-        line.text.insert(self.cursor_position.x as usize, character);
+        line.text.insert(
+            if self.num_columns_for_line_number > self.cursor_position.x as usize {
+                // TODO: replace this and others with saturating sub
+                0
+            } else {
+                self.cursor_position.x as usize - self.num_columns_for_line_number
+            },
+            character,
+        );
         line.render = EditorInstance::get_render_text_from_text(&line.text);
         self.set_line_highlight(index);
     }
@@ -764,10 +814,11 @@ impl EditorInstance {
                 index: self.lines.len(),
                 has_open_multiline_comment: false,
             });
+
+            self.set_num_columns_for_line_number();
         }
 
         self.insert_character_into_line(character);
-
         self.cursor_position.x += 1;
         self.edited = true;
     }
@@ -783,38 +834,50 @@ impl EditorInstance {
     fn delete_character_from_line(&mut self) -> () {
         let line_index = self.cursor_position.y as usize;
         let line = &mut self.lines[line_index];
-        line.text.remove((self.cursor_position.x - 1) as usize);
+        line.text
+            .remove(self.cursor_position.x as usize - self.num_columns_for_line_number - 1);
         line.render = EditorInstance::get_render_text_from_text(&line.text);
         self.set_line_highlight(line_index);
     }
 
     fn delete_character(&mut self) -> () {
-        let index = self.cursor_position.y as usize;
+        let line_index = self.cursor_position.y as usize;
 
-        if index == self.lines.len() || (self.cursor_position.x == 0 && index == 0) {
+        if line_index == self.lines.len()
+            || (self.cursor_position.x as usize == self.num_columns_for_line_number
+                && line_index == 0)
+        {
             return;
         }
 
-        if self.cursor_position.x > 0 {
+        if self.cursor_position.x as usize > self.num_columns_for_line_number {
             self.delete_character_from_line();
             self.cursor_position.x -= 1;
         } else {
-            self.cursor_position.x = self.lines[index - 1]
+            let line_number_columns_offset: u16 = self
+                .num_columns_for_line_number
+                .try_into()
+                .expect("Failed to convert usize to u16");
+
+            let previous_line_length: u16 = self.lines[line_index - 1]
                 .text
                 .chars()
                 .count()
                 .try_into()
-                .expect("Could not convert line index usize into cursor x-position u16");
+                .expect("Failed to convert line index usize to cursor x-position u16");
+
+            self.cursor_position.x = previous_line_length + line_number_columns_offset;
 
             let string_to_append = self.get_current_line().text.clone();
 
             self.append_string_to_previous_line(&string_to_append);
-            self.lines.remove(index);
+            self.lines.remove(line_index);
 
-            for line in self.lines.iter_mut().skip(index) {
+            for line in self.lines.iter_mut().skip(line_index) {
                 line.index -= 1;
             }
 
+            self.set_num_columns_for_line_number();
             self.cursor_position.y -= 1;
         }
 
@@ -822,59 +885,65 @@ impl EditorInstance {
     }
 
     fn insert_line(&mut self) -> () {
-        let index = self.cursor_position.y as usize;
+        let line_index = self.cursor_position.y as usize;
 
-        if self.cursor_position.x == 0 {
+        if self.cursor_position.x as usize == self.num_columns_for_line_number {
             self.lines.insert(
-                index,
+                line_index,
                 Line {
                     text: String::new(),
                     render: String::new(),
                     highlight: vec![],
-                    index,
+                    index: line_index,
                     has_open_multiline_comment: false,
                 },
             );
 
-            for line in self.lines.iter_mut().skip(index + 1) {
+            for line in self.lines.iter_mut().skip(line_index + 1) {
                 line.index += 1;
             }
         } else {
-            let new_next_line_text =
-                self.lines[index].text[self.cursor_position.x as usize..].to_string();
+            let new_next_line_text = self.lines[line_index].text
+                [self.cursor_position.x as usize - self.num_columns_for_line_number..]
+                .to_string();
 
             let new_next_line_render_text =
                 EditorInstance::get_render_text_from_text(&new_next_line_text);
 
-            self.lines[index]
+            self.lines[line_index]
                 .text
-                .truncate(self.cursor_position.x as usize);
+                .truncate(self.cursor_position.x as usize - self.num_columns_for_line_number);
 
-            self.lines[index].render =
-                EditorInstance::get_render_text_from_text(&self.lines[index].text);
+            self.lines[line_index].render =
+                EditorInstance::get_render_text_from_text(&self.lines[line_index].text);
 
-            self.set_line_highlight(index);
+            self.set_line_highlight(line_index);
 
             self.lines.insert(
-                index + 1,
+                line_index + 1,
                 Line {
                     text: new_next_line_text,
                     render: new_next_line_render_text,
                     highlight: vec![],
-                    index: index + 1,
+                    index: line_index + 1,
                     has_open_multiline_comment: false,
                 },
             );
 
-            self.set_line_highlight(index + 1);
+            self.set_line_highlight(line_index + 1);
 
-            for line in self.lines.iter_mut().skip(index + 2) {
+            for line in self.lines.iter_mut().skip(line_index + 2) {
                 line.index += 1;
             }
         }
 
+        self.set_num_columns_for_line_number();
+
         self.cursor_position.y += 1;
-        self.cursor_position.x = 0;
+        self.cursor_position.x = self
+            .num_columns_for_line_number
+            .try_into()
+            .expect("Failed to convert new cursor x-position usize into u16");
 
         self.edited = true;
     }
@@ -947,9 +1016,9 @@ impl EditorInstance {
             {
                 self.previous_search_match_line_index = Some(current_line_index as usize);
 
-                self.cursor_position.y = current_line_index.try_into().expect(
-                    "Could not convert matched line index usize into cursor y-position u32",
-                );
+                self.cursor_position.y = current_line_index
+                    .try_into()
+                    .expect("Failed to convert matched line index usize to cursor y-position u32");
 
                 self.cursor_position.x = self.render_x_to_cursor_x(
                     self.lines[current_line_index as usize]
@@ -958,22 +1027,22 @@ impl EditorInstance {
                         .unwrap()
                         .try_into()
                         .expect(
-                            "Could not convert matched line index usize into cursor x-position u16",
+                            "Failed to convert matched line index usize to cursor x-position u16",
                         ),
-                );
+                ) + self.num_columns_for_line_number as u16;
 
                 self.line_scrolled_to = self
                     .lines
                     .len()
                     .try_into()
-                    .expect("Could not convert line length usize into u32");
+                    .expect("Failed to convert line length usize to u32"); // TODO: common wording
 
                 self.saved_highlight = Some(SavedHighlight {
                     line_index: current_line_index as usize,
                     highlight: self.lines[current_line_index as usize].highlight.clone(),
                 });
 
-                let start = self.cursor_position.x as usize;
+                let start = self.cursor_position.x as usize - self.num_columns_for_line_number;
                 self.lines[current_line_index as usize].highlight[start..start + query.len()]
                     .fill(HighlightType::SearchMatch);
 
@@ -1004,7 +1073,7 @@ impl EditorInstance {
 
         let message_length: u16 =
             message.chars().count().try_into().expect(
-                "Could not convert welcome message length into a u16 during screen refresh",
+                "Failed to convert welcome message length into a u16 during screen refresh",
             );
 
         let mut padding = (self.window_size.columns - message_length) / 2;
@@ -1021,10 +1090,34 @@ impl EditorInstance {
         buffer.push_str(&message);
     }
 
+    fn set_num_columns_for_line_number(&mut self) -> () {
+        let num_lines = self.lines.len();
+
+        self.num_columns_for_line_number = if num_lines > 0 {
+            num_lines.to_string().len() + LINE_NUMBER_GAP as usize
+        } else {
+            0
+        };
+
+        if (self.cursor_position.x as usize) < self.num_columns_for_line_number {
+            self.cursor_position.x = self
+                .num_columns_for_line_number
+                .try_into()
+                .expect("Failed to convert line number column index to u16");
+        }
+    }
+
     /// Uses a String as a buffer to store all lines, before calling `write` once
     /// Prints a welcome message in the middle of the screen using its row/column count
-    pub fn draw_rows(&self) -> () {
+    pub fn draw_rows(&mut self) -> () {
         let mut buffer = String::new();
+
+        if (self.cursor_position.x as usize) < self.num_columns_for_line_number {
+            self.cursor_position.x = self
+                .num_columns_for_line_number
+                .try_into()
+                .expect("Failed to convert line number column index to u16");
+        }
 
         for row in 0..self.window_size.rows {
             let scrolled_to_row = row + self.line_scrolled_to;
@@ -1040,72 +1133,92 @@ impl EditorInstance {
                 let line_content = &line.render;
                 let line_highlight = &line.highlight;
 
+                let mut line_prefix = (line.index + 1).to_string();
+
+                line_prefix.push_str(
+                    &" ".repeat(self.num_columns_for_line_number - line_prefix.chars().count()),
+                );
+
                 let start = self.column_scrolled_to as usize;
-                let end = start + self.window_size.columns as usize;
+                let end = max(
+                    start + self.window_size.columns as usize - self.num_columns_for_line_number,
+                    start,
+                );
 
                 let num_characters = line_content.chars().count();
 
                 let to_iter = if num_characters > end {
-                    Some(&line_content[start..end])
+                    line_prefix.push_str(&line_content[start..end]);
+                    Some(&line_prefix)
                 } else if num_characters > start {
-                    Some(&line_content[start..])
+                    line_prefix.push_str(&line_content[start..]);
+                    Some(&line_prefix)
                 } else {
                     None
                 };
 
-                if let Some(to_iter) = to_iter {
-                    let mut current_highlight_type = &HighlightType::Normal;
+                match to_iter {
+                    Some(to_iter) => {
+                        let mut current_highlight_type = &HighlightType::Normal;
 
-                    to_iter.chars().enumerate().for_each(|(i, char)| {
-                        if char.is_ascii_control() {
-                            buffer.push_str("\x1b[7m"); // Inverted colors
-                            buffer.push(if char as u8 <= 26 {
-                                ('@' as u8 + char as u8) as char
-                            } else {
-                                '?'
-                            });
-                            buffer.push_str("\x1b[m"); // Reset text formatting
-
-                            if current_highlight_type != &HighlightType::Normal {
-                                buffer.push_str("\x1b[");
-                                buffer.push_str(
-                                    &EditorInstance::get_color_from_highlight_type(
-                                        current_highlight_type,
-                                    )
-                                    .to_string(),
-                                );
-                                buffer.push('m');
+                        to_iter.chars().enumerate().for_each(|(i, char)| {
+                            if i < self.num_columns_for_line_number {
+                                buffer.push(line_prefix.chars().nth(i).unwrap()); // TODO: push once, above
+                                return;
                             }
-                        } else {
-                            let highlight_type = &line_highlight[start + i];
 
-                            match highlight_type {
-                                HighlightType::Normal => {
-                                    if current_highlight_type != &HighlightType::Normal {
-                                        buffer.push_str("\x1b[39m"); // m: Select Graphic Rendition (39: default color)
-                                        current_highlight_type = &HighlightType::Normal;
-                                    }
+                            if char.is_ascii_control() {
+                                buffer.push_str("\x1b[7m"); // Inverted colors
+                                buffer.push(if char as u8 <= 26 {
+                                    ('@' as u8 + char as u8) as char
+                                } else {
+                                    '?'
+                                });
+                                buffer.push_str("\x1b[m"); // Reset text formatting
+
+                                if current_highlight_type != &HighlightType::Normal {
+                                    buffer.push_str("\x1b[");
+                                    buffer.push_str(
+                                        &EditorInstance::get_color_from_highlight_type(
+                                            current_highlight_type,
+                                        )
+                                        .to_string(),
+                                    );
+                                    buffer.push('m');
                                 }
-                                _ => {
-                                    if current_highlight_type != highlight_type {
-                                        current_highlight_type = highlight_type;
-                                        buffer.push_str("\x1b[");
-                                        buffer.push_str(
-                                            &EditorInstance::get_color_from_highlight_type(
-                                                highlight_type,
-                                            )
-                                            .to_string(),
-                                        );
-                                        buffer.push('m');
+                            } else {
+                                let highlight_type =
+                                    &line_highlight[start + i - self.num_columns_for_line_number];
+
+                                match highlight_type {
+                                    HighlightType::Normal => {
+                                        if current_highlight_type != &HighlightType::Normal {
+                                            buffer.push_str("\x1b[39m"); // m: Select Graphic Rendition (39: default color)
+                                            current_highlight_type = &HighlightType::Normal;
+                                        }
                                     }
-                                }
-                            };
+                                    _ => {
+                                        if current_highlight_type != highlight_type {
+                                            current_highlight_type = highlight_type;
+                                            buffer.push_str("\x1b[");
+                                            buffer.push_str(
+                                                &EditorInstance::get_color_from_highlight_type(
+                                                    highlight_type,
+                                                )
+                                                .to_string(),
+                                            );
+                                            buffer.push('m');
+                                        }
+                                    }
+                                };
 
-                            buffer.push(char);
-                        }
-                    });
+                                buffer.push(char);
+                            }
+                        });
 
-                    buffer.push_str("\x1b[39m");
+                        buffer.push_str("\x1b[39m"); // m: Select Graphic Rendition (39: default color)
+                    }
+                    None => buffer.push_str(&line_prefix),
                 }
             }
 

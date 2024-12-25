@@ -2,6 +2,7 @@ use std::sync::{Mutex, MutexGuard};
 
 pub const VERSION: &str = "0.0.1";
 pub const TAB_SIZE: u8 = 4;
+pub const LINE_NUMBER_GAP: u8 = 2;
 pub const QUIT_CONFIRMATION_COUNT: u8 = 1;
 
 static BUFFER: Mutex<[u8; 1]> = Mutex::new([0u8; 1]);
