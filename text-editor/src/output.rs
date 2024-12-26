@@ -5,27 +5,62 @@ use crate::{
 };
 use std::io::{self, Write};
 
+#[rustfmt::skip]
+pub enum AnsiEscapeCode {
+    BackgroundGreen,  // \x1b[42m
+    BackgroundRed,    // \x1b[41m
+    ClearScreen,      // \x1b[2J   (J: Erase in Display, 2: clear entire screen)
+    CursorHide,       // \x1b[?25l (?: private mode setting, 25: cursor visibility, l: reset/disable)
+    CursorShow,       // \x1b[?25h (?: private mode setting, 25: cursor visibility, h: set/enable)
+    CursorToTopLeft,  // \x1b[H    (H: Cursor Position, e.g. <esc>[1;1H])
+    DefaultColor,     // \x1b[39m  (m: Select Graphic Rendition [39: default color])
+    EraseLineToRight, // \x1b[K    (K: Erase In Line (2: whole, 1: to left, 0: to right [default])
+    ForegroundBlack,  // \x1b[30m
+    Reset,            // \x1b[m
+    ReverseMode,      // \x1b[7m
+}
+
+impl AnsiEscapeCode {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            AnsiEscapeCode::BackgroundGreen => "\x1b[42m",
+            AnsiEscapeCode::BackgroundRed => "\x1b[41m",
+            AnsiEscapeCode::ClearScreen => "\x1b[2J",
+            AnsiEscapeCode::CursorHide => "\x1b[?25l",
+            AnsiEscapeCode::CursorShow => "\x1b[?25h",
+            AnsiEscapeCode::CursorToTopLeft => "\x1b[H",
+            AnsiEscapeCode::DefaultColor => "\x1b[39m",
+            AnsiEscapeCode::EraseLineToRight => "\x1b[K",
+            AnsiEscapeCode::ForegroundBlack => "\x1b[30m",
+            AnsiEscapeCode::Reset => "\x1b[m",
+            AnsiEscapeCode::ReverseMode => "\x1b[7m",
+        }
+    }
+
+    pub fn as_string(&self) -> String {
+        self.as_str().to_string()
+    }
+}
+
 pub fn move_cursor_to_top_left() -> () {
-    // H: Cursor Position, e.g. <esc>[1;1H]
-    write!(io::stdout(), "\x1b[H").expect("Failed to position cursor at top-left before draw");
+    write!(io::stdout(), "{}", AnsiEscapeCode::CursorToTopLeft.as_str())
+        .expect("Failed to position cursor at top-left before draw");
     flush_stdout();
 }
 
 pub fn clear_display() -> () {
-    // J: Erase in Display, 2: clear entire screen
-    write!(io::stdout(), "\x1b[2J").expect("Failed to clear screen");
+    write!(io::stdout(), "{}", AnsiEscapeCode::ClearScreen.as_str())
+        .expect("Failed to clear screen");
     flush_stdout();
 }
 
 fn hide_cursor() -> () {
-    // l: Reset mode
-    write!(io::stdout(), "\x1b[?25l").expect("Failed to hide cursor");
+    write!(io::stdout(), "{}", AnsiEscapeCode::CursorHide.as_str()).expect("Failed to hide cursor");
     flush_stdout();
 }
 
 fn show_cursor() -> () {
-    // h: Set mode
-    write!(io::stdout(), "\x1b[?25h").expect("Failed to show cursor");
+    write!(io::stdout(), "{}", AnsiEscapeCode::CursorShow.as_str()).expect("Failed to show cursor");
     flush_stdout();
 }
 

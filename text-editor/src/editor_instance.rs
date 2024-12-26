@@ -4,7 +4,7 @@ use crate::{
         SYNTAX_CONFIGURATIONS, TAB_SIZE, VERSION,
     },
     input::{EditorKey, Key},
-    output::{clear_display, move_cursor_to_top_left, prompt_user},
+    output::{clear_display, move_cursor_to_top_left, prompt_user, AnsiEscapeCode},
     terminal::disable_raw_mode,
     utils::{ctrl_key, flush_stdout, get_file_name_from_path, get_window_size, lines_to_string},
     WindowSize,
@@ -73,10 +73,17 @@ struct SavedHighlight {
     highlight: Vec<HighlightType>,
 }
 
+#[derive(PartialEq)]
+enum EditorMode {
+    Normal,
+    Insert,
+}
+
 pub struct EditorInstance {
     original_termios: Termios,
     pub window_size: WindowSize,
     pub cursor_position: CursorPosition,
+    editor_mode: EditorMode,
     lines: Vec<Line>,
     line_scrolled_to: u32,
     column_scrolled_to: u16,
@@ -101,6 +108,7 @@ impl EditorInstance {
                 y: 0,
                 render_x: 0,
             },
+            editor_mode: EditorMode::Insert,
             syntax: None,
             lines: vec![],
             line_scrolled_to: 0,
@@ -450,6 +458,8 @@ impl EditorInstance {
         });
 
         self.set_syntax_from_file_name();
+
+        self.editor_mode = EditorMode::Normal;
     }
 
     fn save(&mut self) -> () {
@@ -530,6 +540,19 @@ impl EditorInstance {
             Key::Custom(EditorKey::ArrowUp) => self.move_cursor(CursorMovement::Up),
             Key::Custom(EditorKey::ArrowRight) => self.move_cursor(CursorMovement::Right),
 
+            Key::U8(key) if key == b'h' && self.editor_mode == EditorMode::Normal => {
+                self.move_cursor(CursorMovement::Left)
+            }
+            Key::U8(key) if key == b'j' && self.editor_mode == EditorMode::Normal => {
+                self.move_cursor(CursorMovement::Down)
+            }
+            Key::U8(key) if key == b'k' && self.editor_mode == EditorMode::Normal => {
+                self.move_cursor(CursorMovement::Up)
+            }
+            Key::U8(key) if key == b'l' && self.editor_mode == EditorMode::Normal => {
+                self.move_cursor(CursorMovement::Right)
+            }
+
             Key::Custom(EditorKey::Home) => {
                 self.cursor_position.x = self
                     .num_columns_for_line_number
@@ -585,10 +608,6 @@ impl EditorInstance {
                 }
             }
 
-            // Ctrl-L typically refreshes terminal screen; we do so after each key-press
-            // We ignore escapes because there are many key escape sequences we don't handle (e.g. F1-F12)
-            Key::U8(key) if key == ctrl_key('l') || key == b'\x1b' => {}
-
             Key::U8(key) if key == ctrl_key('s') => {
                 self.save();
             }
@@ -622,7 +641,21 @@ impl EditorInstance {
             }
             _ => {
                 if let Key::U8(key) = key {
-                    self.insert_character(key as char);
+                    match self.editor_mode {
+                        EditorMode::Normal => {
+                            if key == b'i' {
+                                self.editor_mode = EditorMode::Insert;
+                            }
+                        }
+                        EditorMode::Insert => {
+                            if key == b'\x1b' {
+                                self.editor_mode = EditorMode::Normal;
+                                return;
+                            }
+
+                            self.insert_character(key as char);
+                        }
+                    }
                 }
             }
         }
@@ -1157,13 +1190,13 @@ impl EditorInstance {
 
                     to_iter.chars().enumerate().for_each(|(i, char)| {
                         if char.is_ascii_control() {
-                            buffer.push_str("\x1b[7m"); // Inverted colors
+                            buffer.push_str(AnsiEscapeCode::ReverseMode.as_str());
                             buffer.push(if char as u8 <= 26 {
                                 ('@' as u8 + char as u8) as char
                             } else {
                                 '?'
                             });
-                            buffer.push_str("\x1b[m"); // Reset text formatting
+                            buffer.push_str(AnsiEscapeCode::Reset.as_str());
 
                             if current_highlight_type != &HighlightType::Normal {
                                 buffer.push_str("\x1b[");
@@ -1181,7 +1214,7 @@ impl EditorInstance {
                             match highlight_type {
                                 HighlightType::Normal => {
                                     if current_highlight_type != &HighlightType::Normal {
-                                        buffer.push_str("\x1b[39m"); // m: Select Graphic Rendition (39: default color)
+                                        buffer.push_str(AnsiEscapeCode::DefaultColor.as_str());
                                         current_highlight_type = &HighlightType::Normal;
                                     }
                                 }
@@ -1204,15 +1237,42 @@ impl EditorInstance {
                         }
                     });
 
-                    buffer.push_str("\x1b[39m"); // m: Select Graphic Rendition (39: default color)
+                    buffer.push_str(AnsiEscapeCode::DefaultColor.as_str());
                 }
             }
 
-            buffer.push_str("\x1b[K\r\n"); // K: Erase In Line (2: whole, 1: to left, 0: to right [default])
+            buffer.push_str(AnsiEscapeCode::EraseLineToRight.as_str());
+            buffer.push_str("\r\n");
         }
 
         write!(io::stdout(), "{}", buffer).expect("Failed to write to stdout while drawing rows");
         flush_stdout();
+    }
+
+    fn get_editor_mode_display(&self) -> String {
+        let mut buffer = String::new();
+
+        if self.editor_mode == EditorMode::Insert {
+            buffer.push_str(" NORMAL (<esc>) ");
+        }
+
+        buffer.push_str(AnsiEscapeCode::Reset.as_str());
+        buffer.push_str(AnsiEscapeCode::BackgroundGreen.as_str());
+        buffer.push_str(AnsiEscapeCode::ForegroundBlack.as_str());
+
+        match self.editor_mode {
+            EditorMode::Normal => buffer.push_str(" NORMAL "),
+            EditorMode::Insert => buffer.push_str(" INSERT "),
+        }
+
+        buffer.push_str(AnsiEscapeCode::Reset.as_str());
+        buffer.push_str(AnsiEscapeCode::ReverseMode.as_str());
+
+        if self.editor_mode == EditorMode::Normal {
+            buffer.push_str(" INSERT (i) ");
+        }
+
+        buffer
     }
 
     pub fn draw_status_bar(&self) -> () {
@@ -1220,20 +1280,37 @@ impl EditorInstance {
 
         // Select Graphic Rendition (e.g. `<esc>[1;4;5;7m`)
         // 1: Bold, 4: Underscore, 5: Blink, 7: Inverted colors, 0: Clear all (default)
-        buffer.push_str("\x1b[7m");
+        buffer.push_str(AnsiEscapeCode::ReverseMode.as_str());
+
+        let num_lines = self.lines.len();
 
         let mut status_bar_content = format!(
-            " {:.20} - {} lines{} ",
+            " {:.20}{} - {} line{} - MODE: {} ",
             self.file.as_ref().map_or("[New File]", |file| &file.name),
-            self.lines.len(),
-            if self.edited { " (modified)" } else { "" }
+            if self.edited {
+                format!(
+                    " {}(modified){}{}",
+                    AnsiEscapeCode::BackgroundRed.as_str(),
+                    AnsiEscapeCode::Reset.as_str(),
+                    AnsiEscapeCode::ReverseMode.as_str(),
+                )
+            } else {
+                "".to_string()
+            },
+            num_lines,
+            if num_lines == 1 { "" } else { "s" },
+            self.get_editor_mode_display()
         );
 
-        status_bar_content.truncate(self.window_size.columns as usize);
+        let num_characters_in_terminal_commands = if self.edited { 32 } else { 20 };
+
+        status_bar_content
+            .truncate(self.window_size.columns as usize + num_characters_in_terminal_commands);
 
         buffer.push_str(&status_bar_content);
 
-        let space_left = self.window_size.columns as usize - status_bar_content.chars().count();
+        let space_left = self.window_size.columns as usize + num_characters_in_terminal_commands
+            - status_bar_content.chars().count();
 
         let mut cursor_position_information = format!(
             "{}{}/{} ",
@@ -1250,8 +1327,8 @@ impl EditorInstance {
 
         buffer.push_str(&" ".repeat(gap));
         buffer.push_str(&cursor_position_information);
-
-        buffer.push_str("\x1b[m\r\n"); // Reset text formatting and add newline for status message
+        buffer.push_str(AnsiEscapeCode::Reset.as_str());
+        buffer.push_str("\r\n"); // Add newline for status message
 
         write!(io::stdout(), "{}", buffer)
             .expect("Failed to write to stdout while drawing status bar");
@@ -1266,13 +1343,12 @@ impl EditorInstance {
     }
 
     pub fn draw_status_message_bar(&mut self) -> () {
-        let mut buffer = "\x1b[K".to_string(); // Erase In Line (2: whole, 1: to left, 0: to right [default])
+        let mut buffer = AnsiEscapeCode::EraseLineToRight.as_string();
 
         if let Some(status_message) = &self.status_message {
             if status_message.time_set.elapsed().as_secs() < 5 {
                 let mut message = format!(" {} ", status_message.message.clone());
                 message.truncate(self.window_size.columns as usize);
-
                 buffer.push_str(&message);
             }
         }
