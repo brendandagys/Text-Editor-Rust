@@ -1,6 +1,6 @@
 use crate::editor_instance::Line;
 use crate::globals::get_buffer_lock;
-use crate::output::move_cursor_to_top_left;
+use crate::output::{move_cursor_to_top_left, AnsiEscapeCode};
 use crate::WindowSize;
 use crate::{output::clear_display, terminal::disable_raw_mode};
 use signal_hook::consts::SIGWINCH;
@@ -39,11 +39,7 @@ pub fn set_panic_hook(original_termios: Termios) -> () {
 
 /// Fallback for when `termion.terminal_size()` can not detect terminal dimensions
 fn get_cursor_position() -> WindowSize {
-    let mut stdout = io::stdout();
-
-    // Cursor Position Report (reply is like `\x1b[24;80R`)
-    stdout
-        .write(b"\x1b[6n")
+    write!(io::stdout(), "{}", AnsiEscapeCode::CursorReport.as_str())
         .expect("Failed to write Cursor Position Report command to stdout");
 
     flush_stdout();
@@ -82,19 +78,25 @@ fn get_cursor_position() -> WindowSize {
         .parse::<u16>()
         .expect("Failed to parse col to u16");
 
-    WindowSize { rows, columns }
+    WindowSize {
+        rows: rows - 2, // Account for status bar and status message bar
+        columns: columns - 2,
+    }
 }
 
 /// Executes a command to move the cursor to the bottom-right of the screen, then
 /// retrieves the new cursor position to determine the terminal dimensions
 fn get_window_size_fallback() -> WindowSize {
-    let mut stdout = io::stdout();
-
     // The following 2 commands stop the cursor from going past the screen edge
     let cursor_forward_command = "\x1b[999C".to_string(); // http://vt100.net/docs/vt100-ug/chapter3.html#CUF
     let cursor_down_command = "\x1b[999B".to_string(); // http://vt100.net/docs/vt100-ug/chapter3.html#CUD
 
-    match write!(stdout, "{}{}", cursor_forward_command, cursor_down_command) {
+    match write!(
+        io::stdout(),
+        "{}{}",
+        cursor_forward_command,
+        cursor_down_command
+    ) {
         Ok(_) => {
             flush_stdout();
             get_cursor_position()

@@ -11,8 +11,9 @@ pub enum AnsiEscapeCode {
     BackgroundRed,    // \x1b[41m
     ClearScreen,      // \x1b[2J   (J: Erase in Display, 2: clear entire screen)
     CursorHide,       // \x1b[?25l (?: private mode setting, 25: cursor visibility, l: reset/disable)
+    CursorReport,     // \x1b[6n   (Cursor Position Report [reply e.g. `\x1b[24;80R`])
     CursorShow,       // \x1b[?25h (?: private mode setting, 25: cursor visibility, h: set/enable)
-    CursorToTopLeft,  // \x1b[H    (H: Cursor Position, e.g. <esc>[1;1H])
+    CursorToTopLeft,  // \x1b[H    (H: Cursor Position, e.g. `<esc>[1;1H]`)
     DefaultColor,     // \x1b[39m  (m: Select Graphic Rendition [39: default color])
     EraseLineToRight, // \x1b[K    (K: Erase In Line (2: whole, 1: to left, 0: to right [default])
     ForegroundBlack,  // \x1b[30m
@@ -27,6 +28,7 @@ impl AnsiEscapeCode {
             AnsiEscapeCode::BackgroundRed => "\x1b[41m",
             AnsiEscapeCode::ClearScreen => "\x1b[2J",
             AnsiEscapeCode::CursorHide => "\x1b[?25l",
+            AnsiEscapeCode::CursorReport => "\x1b[6n",
             AnsiEscapeCode::CursorShow => "\x1b[?25h",
             AnsiEscapeCode::CursorToTopLeft => "\x1b[H",
             AnsiEscapeCode::DefaultColor => "\x1b[39m",
