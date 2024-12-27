@@ -1111,7 +1111,7 @@ impl EditorInstance {
                         .expect("Failed to convert line number column index to u16");
 
                     self.line_scrolled_to =
-                        min(line - 1, num_lines).saturating_sub(self.window_size.rows / 2) + 1
+                        min(line - 1, num_lines).saturating_sub(self.window_size.rows / 2)
                 }
                 _ => self.set_status_message("Invalid line number", true),
             };
