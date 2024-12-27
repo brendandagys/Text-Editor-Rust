@@ -608,11 +608,9 @@ impl EditorInstance {
                 }
             }
 
-            Key::U8(key) if key == ctrl_key('s') => {
-                self.save();
-            }
-
+            Key::U8(key) if key == ctrl_key('s') => self.save(),
             Key::U8(key) if key == ctrl_key('f') => self.prompt_and_find_text(),
+            Key::U8(key) if key == ctrl_key('g') => self.prompt_and_go_to_line(),
 
             Key::U8(key) if key == ctrl_key('q') => {
                 if self.edited && self.quit_confirmations < QUIT_CONFIRMATION_COUNT {
@@ -629,7 +627,6 @@ impl EditorInstance {
                     ));
 
                     self.quit_confirmations += 1;
-
                     return;
                 }
 
@@ -1076,6 +1073,34 @@ impl EditorInstance {
 
                 return;
             }
+        }
+    }
+
+    fn prompt_and_go_to_line(&mut self) -> () {
+        if let Some(line) = prompt_user::<fn(&mut EditorInstance, &str, Key)>(
+            self,
+            &format!(
+                "Enter line number between 1 and {} (ESC to abort): ",
+                self.lines.len()
+            ),
+            None,
+        ) {
+            match line.parse::<u32>() {
+                Ok(line) if line > 0 => {
+                    let num_lines = self
+                        .lines
+                        .len()
+                        .try_into()
+                        .expect("Failed to convert usize to u32");
+
+                    self.cursor_position.y = min(line - 1, num_lines);
+                    self.cursor_position.x = self
+                        .num_columns_for_line_number
+                        .try_into()
+                        .expect("Failed to convert line number column index to u16");
+                }
+                _ => self.set_status_message("Invalid line number provided"),
+            };
         }
     }
 
