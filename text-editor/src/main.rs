@@ -38,6 +38,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     active_editor.set_status_message(
         "HELP: Ctrl-F = find | Ctrl-G = go to line | Ctrl-S = save | Ctrl-Q = quit",
+        false,
     );
 
     loop {

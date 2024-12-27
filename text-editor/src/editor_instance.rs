@@ -56,6 +56,7 @@ pub struct Line {
 struct StatusMessage {
     message: String,
     time_set: Instant,
+    error: bool,
 }
 
 enum SearchDirection {
@@ -474,7 +475,7 @@ impl EditorInstance {
                     self.set_syntax_from_file_name();
                 }
                 None => {
-                    self.set_status_message("Save aborted");
+                    self.set_status_message("Save aborted", false);
                     return;
                 }
             }
@@ -490,10 +491,10 @@ impl EditorInstance {
             {
                 Ok(fs_file) => fs_file,
                 Err(e) => {
-                    self.set_status_message(&format!(
-                        "Failed to open {} for saving: {:?}",
-                        file.path, e
-                    ));
+                    self.set_status_message(
+                        &format!("Failed to open {} for saving: {:?}", file.path, e),
+                        true,
+                    );
                     return;
                 }
             };
@@ -503,30 +504,37 @@ impl EditorInstance {
             let content_length: u64 = match content.len().try_into() {
                 Ok(length) => length,
                 Err(e) => {
-                    self.set_status_message(&format!(
-                        "Failed to convert content length from usize to u64: {:?}",
-                        e
-                    ));
+                    self.set_status_message(
+                        &format!(
+                            "Failed to convert content length from usize to u64: {:?}",
+                            e
+                        ),
+                        true,
+                    );
                     return;
                 }
             };
 
             if let Err(e) = fs_file.set_len(content_length) {
-                self.set_status_message(&format!(
-                    "Failed to truncate {} to new length: {:?}",
-                    file.path, e
-                ));
+                self.set_status_message(
+                    &format!("Failed to truncate {} to new length: {:?}", file.path, e),
+                    true,
+                );
                 return;
             }
 
             match fs_file.write_all(content.as_bytes()) {
                 Ok(_) => {
-                    self.set_status_message(&format!("{} bytes written to disk", content.len()));
+                    self.set_status_message(
+                        &format!("{} bytes written to disk", content.len()),
+                        false,
+                    );
                     self.edited = false;
                 }
-                Err(e) => {
-                    self.set_status_message(&format!("Failed to write to {}: {:?}", file.path, e))
-                }
+                Err(e) => self.set_status_message(
+                    &format!("Failed to write to {}: {:?}", file.path, e),
+                    true,
+                ),
             }
         }
     }
@@ -616,7 +624,8 @@ impl EditorInstance {
                 if self.edited && self.quit_confirmations < QUIT_CONFIRMATION_COUNT {
                     let confirmations_remaining = QUIT_CONFIRMATION_COUNT - self.quit_confirmations;
 
-                    self.set_status_message(&format!(
+                    self.set_status_message(
+                        &format!(
                         "WARNING: File has unsaved changes! Press Ctrl-Q {} more time{} to quit.",
                         confirmations_remaining,
                         if confirmations_remaining == 1 {
@@ -624,7 +633,9 @@ impl EditorInstance {
                         } else {
                             "s"
                         }
-                    ));
+                    ),
+                        true,
+                    );
 
                     self.quit_confirmations += 1;
                     return;
@@ -1102,7 +1113,7 @@ impl EditorInstance {
                     self.line_scrolled_to =
                         min(line - 1, num_lines).saturating_sub(self.window_size.rows / 2) + 1
                 }
-                _ => self.set_status_message("Invalid line number provided"),
+                _ => self.set_status_message("Invalid line number", true),
             };
         }
     }
@@ -1304,10 +1315,8 @@ impl EditorInstance {
     }
 
     pub fn draw_status_bar(&self) -> () {
-        let mut buffer = String::new();
+        let mut buffer = AnsiEscapeCode::Reset.as_string();
 
-        // Select Graphic Rendition (e.g. `<esc>[1;4;5;7m`)
-        // 1: Bold, 4: Underscore, 5: Blink, 7: Inverted colors, 0: Clear all (default)
         buffer.push_str(AnsiEscapeCode::ReverseMode.as_str());
 
         let num_lines = self.lines.len();
@@ -1363,20 +1372,33 @@ impl EditorInstance {
         flush_stdout();
     }
 
-    pub fn set_status_message(&mut self, message: &str) -> () {
+    pub fn set_status_message(&mut self, message: &str, error: bool) -> () {
         self.status_message = Some(StatusMessage {
             message: message.to_string(),
             time_set: Instant::now(),
+            error,
         });
     }
 
     pub fn draw_status_message_bar(&mut self) -> () {
-        let mut buffer = AnsiEscapeCode::EraseLineToRight.as_string();
+        let mut buffer = AnsiEscapeCode::Reset.as_string();
+
+        buffer.push_str(AnsiEscapeCode::EraseLineToRight.as_str());
 
         if let Some(status_message) = &self.status_message {
             if status_message.time_set.elapsed().as_secs() < 5 {
-                let mut message = format!(" {} ", status_message.message.clone());
-                message.truncate(self.window_size.columns as usize);
+                let mut message = match status_message.error {
+                    false => format!(" {} ", status_message.message.clone()),
+                    true => format!(
+                        "{} {} {}",
+                        AnsiEscapeCode::BackgroundRed.as_str(),
+                        status_message.message.clone(),
+                        AnsiEscapeCode::Reset.as_str()
+                    ),
+                };
+                message.truncate(
+                    self.window_size.columns as usize + if status_message.error { 8 } else { 0 },
+                );
                 buffer.push_str(&message);
             }
         }

@@ -90,13 +90,13 @@ pub fn prompt_user<F: Fn(&mut EditorInstance, &str, Key)>(
     let mut buffer = String::new();
 
     loop {
-        editor_instance.set_status_message(&format!("{}{}", prompt, buffer));
+        editor_instance.set_status_message(&format!("{}{}", prompt, buffer), false);
         refresh_screen(editor_instance);
 
         if let Some(key) = read_key_input() {
             match key {
                 Key::U8(b'\x1b') => {
-                    editor_instance.set_status_message("");
+                    editor_instance.set_status_message("", false);
 
                     if let Some(callback) = &callback {
                         callback(editor_instance, &buffer, key);
@@ -109,7 +109,7 @@ pub fn prompt_user<F: Fn(&mut EditorInstance, &str, Key)>(
                 }
                 Key::U8(b'\r') => {
                     if !buffer.is_empty() {
-                        editor_instance.set_status_message("");
+                        editor_instance.set_status_message("", false);
 
                         if let Some(callback) = &callback {
                             callback(editor_instance, &buffer, key);
