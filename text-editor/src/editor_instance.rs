@@ -320,6 +320,8 @@ impl EditorInstance {
                             && previous_highlight == &HighlightType::Number
                             // Rust: 3..
                             && chars.clone().next() != Some('.'))
+                        || (['o', 'x'].contains(&char.to_ascii_lowercase())
+                            && previous_highlight == &HighlightType::Number)
                     {
                         highlight[i] = HighlightType::Number;
                         i += 1;
