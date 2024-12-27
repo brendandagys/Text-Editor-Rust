@@ -1080,8 +1080,8 @@ impl EditorInstance {
         if let Some(line) = prompt_user::<fn(&mut EditorInstance, &str, Key)>(
             self,
             &format!(
-                "Enter line number between 1 and {} (ESC to abort): ",
-                self.lines.len()
+                "Enter a line number between 1 and {} (ESC to abort): ",
+                self.lines.len() + 1
             ),
             None,
         ) {
@@ -1098,6 +1098,9 @@ impl EditorInstance {
                         .num_columns_for_line_number
                         .try_into()
                         .expect("Failed to convert line number column index to u16");
+
+                    self.line_scrolled_to =
+                        min(line - 1, num_lines).saturating_sub(self.window_size.rows / 2) + 1
                 }
                 _ => self.set_status_message("Invalid line number provided"),
             };
