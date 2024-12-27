@@ -5,6 +5,9 @@ pub const TAB_SIZE: u8 = 4;
 pub const LINE_NUMBER_GAP: u8 = 3;
 pub const QUIT_CONFIRMATION_COUNT: u8 = 1;
 
+pub const DEFAULT_STATUS_BAR_MESSAGE: &str =
+    "Ctrl-F: find | Ctrl-G: go to line | Ctrl-S: save | Ctrl-Q: quit";
+
 static BUFFER: Mutex<[u8; 1]> = Mutex::new([0u8; 1]);
 
 pub fn get_buffer_lock() -> MutexGuard<'static, [u8; 1]> {

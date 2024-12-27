@@ -1,4 +1,4 @@
-use crate::{editor_instance::EditorInstance, globals::get_buffer_lock, utils::ctrl_key};
+use crate::{editor_instance::EditorInstance, globals::get_buffer_lock};
 use std::io::{self, Read};
 
 #[derive(PartialEq)]
@@ -88,7 +88,6 @@ pub fn read_key_input() -> Option<Key> {
                 }
             }
             127 => Some(Key::Custom(EditorKey::Backspace)),
-            key if key == ctrl_key('h') => Some(Key::Custom(EditorKey::Backspace)), // `8`
             _ => Some(Key::U8(key)),
         },
         None => None,

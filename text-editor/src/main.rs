@@ -1,4 +1,5 @@
 use editor_instance::EditorInstance;
+use globals::DEFAULT_STATUS_BAR_MESSAGE;
 use input::process_keypress;
 use output::{clear_display, refresh_screen};
 use std::error::Error;
@@ -36,10 +37,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         active_editor.open(&args.collect::<Vec<String>>()[1]);
     }
 
-    active_editor.set_status_message(
-        "HELP: Ctrl-F = find | Ctrl-G = go to line | Ctrl-S = save | Ctrl-Q = quit",
-        false,
-    );
+    active_editor.set_status_message(DEFAULT_STATUS_BAR_MESSAGE, false);
 
     loop {
         let window_size = *window_size

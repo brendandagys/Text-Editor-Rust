@@ -1,7 +1,7 @@
 use crate::{
     globals::{
-        Syntax, HIGHLIGHT_NUMBERS, HIGHLIGHT_STRINGS, LINE_NUMBER_GAP, QUIT_CONFIRMATION_COUNT,
-        SYNTAX_CONFIGURATIONS, TAB_SIZE, VERSION,
+        Syntax, DEFAULT_STATUS_BAR_MESSAGE, HIGHLIGHT_NUMBERS, HIGHLIGHT_STRINGS, LINE_NUMBER_GAP,
+        QUIT_CONFIRMATION_COUNT, SYNTAX_CONFIGURATIONS, TAB_SIZE, VERSION,
     },
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left, prompt_user, AnsiEscapeCode},
@@ -619,6 +619,9 @@ impl EditorInstance {
             Key::U8(key) if key == ctrl_key('s') => self.save(),
             Key::U8(key) if key == ctrl_key('f') => self.prompt_and_find_text(),
             Key::U8(key) if key == ctrl_key('g') => self.prompt_and_go_to_line(),
+            Key::U8(key) if key == ctrl_key('h') => {
+                self.set_status_message(DEFAULT_STATUS_BAR_MESSAGE, false);
+            }
 
             Key::U8(key) if key == ctrl_key('q') => {
                 if self.edited && self.quit_confirmations < QUIT_CONFIRMATION_COUNT {
@@ -1308,7 +1311,7 @@ impl EditorInstance {
         buffer.push_str(AnsiEscapeCode::ReverseMode.as_str());
 
         if self.editor_mode == EditorMode::Normal {
-            buffer.push_str(" INSERT (i) ");
+            buffer.push_str(" INSERT (i)");
         }
 
         buffer
@@ -1322,7 +1325,7 @@ impl EditorInstance {
         let num_lines = self.lines.len();
 
         let mut status_bar_content = format!(
-            " {:.20}{} - {} line{} - MODE: {} ",
+            " {:.20}{} - {} line{} - MODE: {} - Ctrl-H: help ",
             self.file.as_ref().map_or("[New File]", |file| &file.name),
             if self.edited {
                 format!(
