@@ -157,7 +157,7 @@ impl EditorInstance {
     }
 
     fn is_separator(char: char) -> bool {
-        char.is_ascii_punctuation() || char.is_ascii_whitespace() || char == '\n'
+        (char.is_ascii_punctuation() || char.is_ascii_whitespace() || char == '\n') && char != '_'
     }
 
     fn set_line_highlight(&mut self, line_index: usize) -> () {
@@ -335,8 +335,10 @@ impl EditorInstance {
                         let mut keyword_iterator = keyword.chars();
                         let keyword_length = keyword.chars().count();
 
-                        if (i == 0 || self.lines[line_index].render.chars().nth(i - 1) != Some('_'))
-                            && chars.clone().count() >= keyword_length - 1
+                        if (i == 0 || {
+                            let previous_char = self.lines[line_index].render.chars().nth(i - 1);
+                            previous_char != Some('_') && previous_char != Some('.')
+                        }) && chars.clone().count() >= keyword_length - 1
                         {
                             if let Some(keyword_first_char) = keyword_iterator.next() {
                                 if keyword_first_char == char
