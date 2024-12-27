@@ -1329,7 +1329,7 @@ impl EditorInstance {
         let num_lines = self.lines.len();
 
         let mut status_bar_content = format!(
-            " {:.20}{} - {} line{} - MODE: {} - Ctrl-H: help ",
+            " {:.20}{} {} {} {} line{} {} {} MODE: {} {} {} Ctrl-H: help {} {}",
             self.file.as_ref().map_or("[New File]", |file| &file.name),
             if self.edited {
                 format!(
@@ -1339,14 +1339,22 @@ impl EditorInstance {
                     AnsiEscapeCode::ReverseMode.as_str(),
                 )
             } else {
-                "".to_string()
+                String::new()
             },
+            AnsiEscapeCode::Reset.as_str(),
+            AnsiEscapeCode::ReverseMode.as_str(),
             num_lines,
             if num_lines == 1 { "" } else { "s" },
-            self.get_editor_mode_display()
+            AnsiEscapeCode::Reset.as_str(),
+            AnsiEscapeCode::ReverseMode.as_str(),
+            self.get_editor_mode_display(),
+            AnsiEscapeCode::Reset.as_str(),
+            AnsiEscapeCode::ReverseMode.as_str(),
+            AnsiEscapeCode::Reset.as_str(),
+            AnsiEscapeCode::ReverseMode.as_str(),
         );
 
-        let num_characters_in_terminal_commands = if self.edited { 32 } else { 20 };
+        let num_characters_in_terminal_commands = if self.edited { 60 } else { 48 };
 
         status_bar_content
             .truncate(self.window_size.columns as usize + num_characters_in_terminal_commands);
@@ -1357,7 +1365,9 @@ impl EditorInstance {
             - status_bar_content.chars().count();
 
         let mut cursor_position_information = format!(
-            "{}{}/{} ",
+            "{} {} {}{}/{} ",
+            AnsiEscapeCode::Reset.as_str(),
+            AnsiEscapeCode::ReverseMode.as_str(),
             self.syntax
                 .as_ref()
                 .map_or(String::new(), |syntax| format!("{} ", syntax.file_type)),
@@ -1365,9 +1375,12 @@ impl EditorInstance {
             self.lines.len()
         );
 
-        cursor_position_information.truncate(space_left);
+        let num_characters_in_terminal_commands = 7;
 
-        let gap = space_left - cursor_position_information.chars().count();
+        cursor_position_information.truncate(space_left + num_characters_in_terminal_commands);
+
+        let gap = space_left + num_characters_in_terminal_commands
+            - cursor_position_information.chars().count();
 
         buffer.push_str(&" ".repeat(gap));
         buffer.push_str(&cursor_position_information);
