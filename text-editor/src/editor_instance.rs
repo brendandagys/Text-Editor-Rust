@@ -33,7 +33,7 @@ pub enum CursorMovement {
     Right,
 }
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 enum HighlightType {
     Normal,
     Number,
@@ -59,6 +59,7 @@ struct StatusMessage {
     error: bool,
 }
 
+#[derive(Debug, PartialEq)]
 enum SearchDirection {
     Forward,
     Backward,
@@ -69,12 +70,13 @@ struct File {
     name: String,
 }
 
+#[derive(Debug, PartialEq)]
 struct SavedHighlight {
     line_index: usize,
     highlight: Vec<HighlightType>,
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum EditorMode {
     Normal,
     Insert,
@@ -408,29 +410,34 @@ impl EditorInstance {
     }
 
     fn set_syntax_from_file_name(&mut self) -> () {
-        let file_name = match &self.file {
-            Some(file) => file.name.clone(),
-            None => return,
-        };
+        match &self.file {
+            None => self.syntax = None,
+            Some(file) => {
+                let file_name = file.name.clone();
+                let file_extension = file_name.rfind('.').map(|index| &file_name[index..]);
 
-        let file_extension = file_name.rfind('.').map(|index| &file_name[index..]);
-
-        for configuration in SYNTAX_CONFIGURATIONS {
-            for file_match in configuration.file_match {
-                match file_extension {
-                    Some(file_extension) => {
-                        if file_extension == *file_match {
-                            self.syntax = Some(configuration);
-                            self.update_line_highlights();
-                        }
-                    }
-                    None => {
-                        if file_name.contains(file_match) {
-                            self.syntax = Some(configuration);
-                            self.update_line_highlights();
+                for configuration in SYNTAX_CONFIGURATIONS {
+                    for file_match in configuration.file_match {
+                        match file_extension {
+                            Some(file_extension) => {
+                                if file_extension == *file_match {
+                                    self.syntax = Some(configuration);
+                                    self.update_line_highlights();
+                                    return;
+                                }
+                            }
+                            None => {
+                                if file_name.contains(file_match) {
+                                    self.syntax = Some(configuration);
+                                    self.update_line_highlights();
+                                    return;
+                                }
+                            }
                         }
                     }
                 }
+
+                self.syntax = None;
             }
         }
     }
@@ -1426,5 +1433,186 @@ impl EditorInstance {
         write!(io::stdout(), "{buffer}")
             .expect("Failed to write to stdout while drawing status message bar");
         flush_stdout();
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+    use crate::terminal::get_populated_termios;
+
+    #[test]
+    fn test_new_editor_instance() {
+        let dummy_termios = get_populated_termios();
+        let editor = EditorInstance::new(dummy_termios);
+
+        // Check initial properties
+        assert_eq!(editor.cursor_position.x, 0);
+        assert_eq!(editor.cursor_position.y, 0);
+        assert_eq!(editor.cursor_position.render_x, 0);
+        assert_eq!(editor.editor_mode, EditorMode::Insert);
+        assert!(editor.lines.is_empty());
+        assert_eq!(editor.line_scrolled_to, 0);
+        assert_eq!(editor.column_scrolled_to, 0);
+        assert!(editor.file.is_none());
+        assert!(editor.status_message.is_none());
+        assert!(!editor.edited);
+        assert_eq!(editor.quit_confirmations, 0);
+        assert_eq!(editor.previous_search_match_line_index, None);
+        assert_eq!(editor.search_direction, SearchDirection::Forward);
+        assert_eq!(editor.saved_highlight, None);
+        assert_eq!(editor.num_columns_for_line_number, 0);
+    }
+
+    #[test]
+    fn test_get_current_line() {
+        let dummy_termios = get_populated_termios();
+        let mut editor = EditorInstance::new(dummy_termios);
+
+        // No lines
+        assert!(editor.get_current_line().is_none());
+
+        // Happy path
+        editor.lines.push(Line {
+            text: String::from("First line"),
+            render: String::from("First line"),
+            highlight: vec![],
+            index: 0,
+            has_open_multiline_comment: false,
+        });
+        editor.lines.push(Line {
+            text: String::from("Second line"),
+            render: String::from("Second line"),
+            highlight: vec![],
+            index: 1,
+            has_open_multiline_comment: false,
+        });
+
+        editor.cursor_position.y = 0;
+        let current_line = editor.get_current_line();
+        assert!(current_line.is_some());
+        assert_eq!(current_line.unwrap().text, "First line");
+
+        editor.cursor_position.y = 1;
+        let current_line = editor.get_current_line();
+        assert!(current_line.is_some());
+        assert_eq!(current_line.unwrap().text, "Second line");
+
+        // Out of bounds
+        editor.cursor_position.y = 2;
+        assert!(editor.get_current_line().is_none());
+    }
+
+    #[test]
+    fn test_get_render_text_from_text() {
+        let input = "Hello\tWorld!";
+        let expected_output = "Hello   World!"; // Three spaces to next tab
+        let output = EditorInstance::get_render_text_from_text(input);
+        assert_eq!(output, expected_output);
+
+        let input = "\tTabbed";
+        let expected_output = "    Tabbed"; // Four spaces to first tab
+        let output = EditorInstance::get_render_text_from_text(input);
+        assert_eq!(output, expected_output);
+
+        let input = "No tabs here!";
+        let expected_output = "No tabs here!";
+        let output = EditorInstance::get_render_text_from_text(input);
+        assert_eq!(output, expected_output);
+    }
+
+    mod test_is_separator {
+        use super::*;
+
+        #[test]
+        fn test_with_punctuation() {
+            assert!(EditorInstance::is_separator('.'));
+            assert!(EditorInstance::is_separator(','));
+            assert!(EditorInstance::is_separator('!'));
+            assert!(EditorInstance::is_separator('?'));
+            assert!(EditorInstance::is_separator(';'));
+            assert!(EditorInstance::is_separator(':'));
+        }
+
+        #[test]
+        fn test_with_whitespace() {
+            assert!(EditorInstance::is_separator(' '));
+            assert!(EditorInstance::is_separator('\t'));
+        }
+
+        #[test]
+        fn test_with_newline() {
+            assert!(EditorInstance::is_separator('\n'));
+        }
+
+        #[test]
+        fn test_with_non_separators() {
+            assert!(!EditorInstance::is_separator('a'));
+            assert!(!EditorInstance::is_separator('Z'));
+            assert!(!EditorInstance::is_separator('0'));
+            assert!(!EditorInstance::is_separator('9'));
+        }
+
+        #[test]
+        fn test_with_underscore() {
+            assert!(!EditorInstance::is_separator('_')); // Underscore is NOT a separator
+        }
+
+        #[test]
+        fn test_with_extended_ascii() {
+            assert!(!EditorInstance::is_separator('é')); // Non-ASCII character
+            assert!(!EditorInstance::is_separator('中')); // Unicode character
+        }
+
+        #[test]
+        fn test_with_edge_cases() {
+            assert!(EditorInstance::is_separator('['));
+            assert!(EditorInstance::is_separator(']'));
+            assert!(EditorInstance::is_separator('{'));
+            assert!(EditorInstance::is_separator('}'));
+        }
+    }
+
+    mod test_set_syntax_from_file_name {
+        use super::*;
+
+        #[test]
+        fn test_with_supported_file_types() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            [
+                ("test.rs", "Rust"),
+                ("test.c", "C"),
+                ("test.py", "Python"),
+                ("test.js", "JavaScript"),
+            ]
+            .iter()
+            .for_each(|(file_name, expected_file_type)| {
+                editor.file = Some(File {
+                    name: file_name.to_string(),
+                    path: format!("some-path/{file_name}"),
+                });
+
+                editor.set_syntax_from_file_name();
+                assert_eq!(editor.syntax.unwrap().file_type, *expected_file_type);
+            });
+        }
+
+        #[test]
+        fn test_with_unsupported_file_types() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            editor.file = Some(File {
+                name: "test.foo".to_string(),
+                path: format!("some-path/test.foo"),
+            });
+
+            editor.syntax = Some(&SYNTAX_CONFIGURATIONS[0]);
+
+            editor.set_syntax_from_file_name();
+            assert!(editor.syntax.is_none());
+        }
     }
 }
