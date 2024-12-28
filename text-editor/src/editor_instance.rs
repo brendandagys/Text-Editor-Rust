@@ -1615,4 +1615,84 @@ mod unit_tests {
             assert!(editor.syntax.is_none());
         }
     }
+
+    mod test_open {
+        use super::*;
+        use std::fs::File;
+        use std::io::Write;
+        use std::sync::{Arc, Mutex};
+        use tempfile::tempdir;
+
+        #[test]
+        fn test_open_valid_file() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+            editor.editor_mode = EditorMode::Insert;
+
+            let dir = tempdir().unwrap();
+            let file_path = dir.path().join("test.txt");
+            let mut file = File::create(&file_path).unwrap();
+
+            // No lines
+            editor.open(file_path.to_str().unwrap());
+            assert_eq!(editor.lines.len(), 0);
+
+            // 2 lines
+            writeln!(file, "Line 1").unwrap();
+            writeln!(file, "Line 2").unwrap();
+
+            editor.open(file_path.to_str().unwrap());
+
+            assert_eq!(editor.lines.len(), 2);
+            assert_eq!(editor.lines[0].text, "Line 1");
+            assert_eq!(editor.lines[1].text, "Line 2");
+
+            assert_eq!(
+                editor.file.as_ref().unwrap().path,
+                file_path.to_str().unwrap()
+            );
+            assert_eq!(editor.file.as_ref().unwrap().name, "test.txt");
+
+            assert!(editor.syntax.is_none());
+
+            assert_eq!(editor.editor_mode, EditorMode::Normal);
+        }
+
+        #[test]
+        fn test_open_file_with_syntax_detection() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            let dir = tempdir().unwrap();
+            let file_path = dir.path().join("test.rs");
+            let mut file = File::create(&file_path).unwrap();
+            writeln!(file, "fn main() {{}}").unwrap();
+
+            editor.open(file_path.to_str().unwrap());
+
+            assert_eq!(editor.lines.len(), 1);
+            assert_eq!(editor.lines[0].text, "fn main() {}");
+
+            assert!(editor.syntax.is_some());
+            assert_eq!(editor.syntax.unwrap().file_type, "Rust");
+        }
+
+        #[test]
+        fn test_open_non_existent_file() {
+            let dummy_termios = get_populated_termios();
+            let editor = EditorInstance::new(dummy_termios);
+
+            let non_existent_file = "/non/existent/file.txt";
+
+            let editor_arc = Arc::new(Mutex::new(editor));
+
+            std::panic::set_hook(Box::new(|_| {})); // Prevent panic from printing with --nocapture flag
+
+            assert!(std::panic::catch_unwind(|| {
+                let mut editor_ref = editor_arc.lock().unwrap();
+                editor_ref.open(non_existent_file);
+            })
+            .is_err());
+        }
+    }
 }

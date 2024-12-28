@@ -7,3 +7,6 @@ edition = "2021"
 signal-hook = "0.3.17"
 termion = "4.0.3"
 termios = "0.3.3"
+
+[dev-dependencies]
+tempfile = "3.14.0"
