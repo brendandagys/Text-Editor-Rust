@@ -2755,26 +2755,7 @@ mod unit_tests {
         }
 
         #[test]
-        fn test_delete_character_empty_editor() {
-            let mut editor = EditorInstance::new(get_populated_termios());
-
-            editor.lines = vec![];
-            editor.cursor_position = CursorPosition {
-                x: 0,
-                y: 0,
-                render_x: 0,
-            };
-
-            editor.delete_character();
-
-            assert!(editor.lines.is_empty());
-            assert_eq!(editor.cursor_position.x, 0);
-            assert_eq!(editor.cursor_position.y, 0);
-            assert!(!editor.edited);
-        }
-
-        #[test]
-        fn test_delete_character_no_op() {
+        fn test_delete_character_no_op_past_last_line() {
             let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.lines.push(Line {
@@ -2785,17 +2766,54 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
+            editor.set_num_columns_for_line_number();
+
             editor.cursor_position = CursorPosition {
-                x: 0,
-                y: 0,
-                render_x: 0,
+                x: editor.num_columns_for_line_number as u16,
+                y: 1,
+                render_x: editor.num_columns_for_line_number as u16,
             };
 
             editor.delete_character();
 
             assert_eq!(editor.lines.len(), 1);
             assert_eq!(editor.lines[0].text, "Only line");
-            assert_eq!(editor.cursor_position.x, 0);
+            assert_eq!(
+                editor.cursor_position.x,
+                editor.num_columns_for_line_number as u16
+            );
+            assert_eq!(editor.cursor_position.y, 1);
+            assert!(!editor.edited);
+        }
+
+        #[test]
+        fn test_delete_character_no_op_start_of_first_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Only line"),
+                render: String::from("Only line"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: editor.num_columns_for_line_number as u16,
+            };
+
+            editor.delete_character();
+
+            assert_eq!(editor.lines.len(), 1);
+            assert_eq!(editor.lines[0].text, "Only line");
+            assert_eq!(
+                editor.cursor_position.x,
+                editor.num_columns_for_line_number as u16
+            );
             assert_eq!(editor.cursor_position.y, 0);
             assert!(!editor.edited);
         }
