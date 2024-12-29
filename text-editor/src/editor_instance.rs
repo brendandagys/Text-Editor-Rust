@@ -2082,4 +2082,65 @@ mod unit_tests {
             assert_eq!(editor.cursor_position.y, 1);
         }
     }
+
+    mod test_cursor_x_to_render_x {
+        use super::*;
+
+        #[test]
+        fn test_cursor_x_to_render_x_no_tabs() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("abcdef"),
+                render: String::from("abcdef"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.cursor_position.y = 0;
+
+            assert_eq!(editor.cursor_x_to_render_x(0), 0);
+            assert_eq!(editor.cursor_x_to_render_x(3), 3);
+            assert_eq!(editor.cursor_x_to_render_x(6), 6);
+        }
+
+        #[test]
+        fn test_cursor_x_to_render_x_with_tabs() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("ab\tcd"),
+                render: String::from("ab    cd"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.cursor_position.y = 0;
+
+            assert_eq!(editor.cursor_x_to_render_x(0), 0);
+            assert_eq!(editor.cursor_x_to_render_x(2), 2);
+            assert_eq!(editor.cursor_x_to_render_x(3), 4); // Tab expands to render width 4
+            assert_eq!(editor.cursor_x_to_render_x(5), 6); // After tab, next positions are linear
+        }
+
+        #[test]
+        fn test_cursor_x_to_render_x_empty_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from(""),
+                render: String::from(""),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.cursor_position.y = 0;
+
+            assert_eq!(editor.cursor_x_to_render_x(0), 0);
+            assert_eq!(editor.cursor_x_to_render_x(1), 1);
+        }
+    }
 }
