@@ -2313,4 +2313,215 @@ mod unit_tests {
             assert_eq!(editor.column_scrolled_to, 1);
         }
     }
+
+    mod test_insert_character_into_line {
+        use super::*;
+
+        #[test]
+        fn test_insert_character_into_empty_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::new(),
+                render: String::new(),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_character_into_line('a');
+
+            assert_eq!(editor.lines[0].text, "a");
+            assert_eq!(editor.lines[0].render, "a");
+        }
+
+        #[test]
+        fn test_insert_character_into_non_empty_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: 2 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 2 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_character_into_line('a');
+
+            assert_eq!(editor.lines[0].text, "Heallo");
+            assert_eq!(editor.lines[0].render, "Heallo");
+        }
+
+        #[test]
+        fn test_insert_character_at_end_of_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position = CursorPosition {
+                x: 5 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 5 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_character_into_line('!');
+
+            assert_eq!(editor.lines[0].text, "Hello!");
+            assert_eq!(editor.lines[0].render, "Hello!");
+        }
+
+        #[test]
+        fn test_insert_character_updates_render_text() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Tab\t"),
+                render: String::from("Tab    "),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position = CursorPosition {
+                x: 3 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 6 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_character('s');
+
+            assert_eq!(editor.lines[0].text, "Tabs\t");
+            assert_eq!(editor.lines[0].render, "Tabs    ");
+            assert!(editor.edited);
+        }
+
+        #[test]
+        fn test_insert_character_updates_highlight() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![HighlightType::Normal; 5],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position = CursorPosition {
+                x: 5 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 5 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_character_into_line('!');
+
+            assert_eq!(editor.lines[0].text, "Hello!");
+            assert_eq!(editor.lines[0].render, "Hello!");
+            assert_eq!(editor.lines[0].highlight.len(), 6);
+        }
+    }
+
+    mod test_insert_character {
+        use super::*;
+
+        #[test]
+        fn test_insert_character_into_new_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.cursor_position = CursorPosition {
+                x: 0,
+                y: 0,
+                render_x: 0,
+            };
+            editor.set_num_columns_for_line_number();
+            editor.lines.clear();
+            editor.insert_character('a');
+
+            assert_eq!(editor.lines.len(), 1);
+            assert_eq!(editor.lines[0].text, "a");
+            assert_eq!(
+                editor.cursor_position.x,
+                1 + editor.num_columns_for_line_number as u16
+            );
+            assert!(editor.edited);
+        }
+
+        #[test]
+        fn test_insert_character_into_existing_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position = CursorPosition {
+                x: 5 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 5 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_character('!');
+
+            assert_eq!(editor.lines.len(), 1);
+            assert_eq!(editor.lines[0].text, "Hello!");
+            assert_eq!(
+                editor.cursor_position.x,
+                6 + editor.num_columns_for_line_number as u16
+            );
+            assert!(editor.edited);
+        }
+
+        #[test]
+        fn test_insert_character_with_new_line_creation() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Line 1"),
+                render: String::from("Line 1"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 1,
+                render_x: editor.num_columns_for_line_number as u16,
+            }; // Below the existing line
+
+            editor.insert_character('A');
+
+            assert_eq!(editor.lines.len(), 2); // A new line is created
+            assert_eq!(editor.lines[1].text, "A");
+            assert_eq!(
+                editor.cursor_position.x,
+                1 + editor.num_columns_for_line_number as u16
+            );
+            assert!(editor.edited);
+        }
+    }
 }
