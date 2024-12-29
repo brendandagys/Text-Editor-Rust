@@ -45,6 +45,7 @@ enum HighlightType {
     SearchMatch,
 }
 
+#[derive(Clone)]
 pub struct Line {
     pub text: String,
     render: String,
@@ -2217,6 +2218,99 @@ mod unit_tests {
             editor.set_num_columns_for_line_number();
 
             assert_eq!(editor.render_x_to_cursor_x(10), 3);
+        }
+    }
+
+    mod test_scroll {
+        use super::*;
+
+        #[test]
+        fn test_scroll_no_scroll_needed() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.window_size = WindowSize {
+                rows: 10,
+                columns: 20,
+            };
+            editor.lines = vec![
+                Line {
+                    text: String::from("This is a test."),
+                    render: String::from("This is a test."),
+                    highlight: vec![],
+                    index: 0,
+                    has_open_multiline_comment: false,
+                };
+                5
+            ];
+            editor.cursor_position = CursorPosition {
+                x: 4,
+                y: 2,
+                render_x: 4,
+            };
+
+            editor.scroll();
+
+            assert_eq!(editor.line_scrolled_to, 0);
+            assert_eq!(editor.column_scrolled_to, 0);
+        }
+
+        #[test]
+        fn test_scroll_vertical_scrolling() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.window_size = WindowSize {
+                rows: 3,
+                columns: 20,
+            };
+            editor.lines = vec![
+                Line {
+                    text: String::from("Line of text"),
+                    render: String::from("Line of text"),
+                    highlight: vec![],
+                    index: 0,
+                    has_open_multiline_comment: false,
+                };
+                10
+            ];
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 5,
+                render_x: editor.num_columns_for_line_number as u16,
+            };
+
+            editor.scroll();
+
+            assert_eq!(editor.line_scrolled_to, 3);
+            assert_eq!(editor.column_scrolled_to, 0);
+        }
+
+        #[test]
+        fn test_scroll_horizontal_scrolling() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.window_size = WindowSize {
+                rows: 10,
+                columns: 10,
+            };
+            editor.lines.push(Line {
+                text: String::from("This is a very long line of text."),
+                render: String::from("This is a very long line of text."),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position = CursorPosition {
+                x: 10,
+                y: 0,
+                render_x: 10,
+            };
+
+            editor.scroll();
+
+            assert_eq!(editor.line_scrolled_to, 0);
+            assert_eq!(editor.column_scrolled_to, 1);
         }
     }
 }
