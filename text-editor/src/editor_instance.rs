@@ -872,9 +872,9 @@ impl EditorInstance {
 
     fn append_string_to_previous_line(&mut self, string: &str) -> () {
         let previous_line_index = (self.cursor_position.y - 1) as usize;
-        let line = &mut self.lines[previous_line_index];
-        line.text.push_str(string);
-        line.render = EditorInstance::get_render_text_from_text(&line.text);
+        let previous_line = &mut self.lines[previous_line_index];
+        previous_line.text.push_str(string);
+        previous_line.render = EditorInstance::get_render_text_from_text(&previous_line.text);
         self.set_line_highlight(previous_line_index);
     }
 
@@ -2522,6 +2522,61 @@ mod unit_tests {
                 1 + editor.num_columns_for_line_number as u16
             );
             assert!(editor.edited);
+        }
+    }
+
+    mod test_append_string_to_previous_line {
+        use super::*;
+
+        #[test]
+        fn test_append_string_to_previous_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 1,
+                render_x: editor.num_columns_for_line_number as u16,
+            };
+
+            editor.append_string_to_previous_line(" World");
+
+            assert_eq!(editor.lines.len(), 1); // No new lines should be added
+            assert_eq!(editor.lines[0].text, "Hello World");
+            assert!(editor.lines[0].render.contains("Hello World")); // Render updates
+        }
+
+        #[test]
+        #[should_panic(expected = "attempt to subtract with overflow")]
+        fn test_append_string_to_previous_line_panic_on_first_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("First line"),
+                render: String::from("First line"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: editor.num_columns_for_line_number as u16,
+            };
+
+            editor.append_string_to_previous_line(" Should fail");
         }
     }
 }
