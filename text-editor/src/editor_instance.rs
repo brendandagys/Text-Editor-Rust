@@ -2137,10 +2137,86 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.cursor_position.y = 0;
-
             assert_eq!(editor.cursor_x_to_render_x(0), 0);
             assert_eq!(editor.cursor_x_to_render_x(1), 1);
+        }
+    }
+
+    mod test_render_x_to_cursor_x {
+        use super::*;
+
+        #[test]
+        fn test_render_x_to_cursor_x_no_tabs() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("abcdef"),
+                render: String::from("abcdef"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            assert_eq!(editor.render_x_to_cursor_x(0), 0);
+            assert_eq!(editor.render_x_to_cursor_x(3), 3);
+            assert_eq!(editor.render_x_to_cursor_x(6), 6);
+        }
+
+        #[test]
+        fn test_render_x_to_cursor_x_with_tabs() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("ab\tcd"),
+                render: String::from("ab  cd"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            assert_eq!(editor.render_x_to_cursor_x(0), 0);
+            assert_eq!(editor.render_x_to_cursor_x(2), 2);
+            assert_eq!(editor.render_x_to_cursor_x(4), 3);
+            assert_eq!(editor.render_x_to_cursor_x(6), 5);
+        }
+
+        #[test]
+        fn test_render_x_to_cursor_x_empty_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from(""),
+                render: String::from(""),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            assert_eq!(editor.render_x_to_cursor_x(0), 0);
+            // Cursor can not move to index 1 as there are no characters
+        }
+
+        #[test]
+        fn test_render_x_to_cursor_x_out_of_bounds() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("abc"),
+                render: String::from("abc"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            assert_eq!(editor.render_x_to_cursor_x(10), 3);
         }
     }
 }
