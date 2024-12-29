@@ -1757,7 +1757,7 @@ mod unit_tests {
             assert_eq!(editor.cursor_position.x, 0);
 
             // Right at end of line
-            editor.cursor_position.x = (5 + editor.num_columns_for_line_number) as u16;
+            editor.cursor_position.x = 5 + editor.num_columns_for_line_number as u16;
             editor.process_key(Key::Custom(EditorKey::ArrowRight));
             assert_eq!(
                 editor.cursor_position.x as usize,
@@ -1805,7 +1805,7 @@ mod unit_tests {
             editor.set_num_columns_for_line_number();
 
             // Delete
-            editor.cursor_position.x = (2 + editor.num_columns_for_line_number) as u16;
+            editor.cursor_position.x = 2 + editor.num_columns_for_line_number as u16;
             editor.process_key(Key::Custom(EditorKey::Delete));
             assert_eq!(editor.lines[0].text, "Helo");
 
@@ -1917,6 +1917,169 @@ mod unit_tests {
             assert_eq!(editor.editor_mode, EditorMode::Normal);
             editor.process_key(Key::U8(b'i'));
             assert_eq!(editor.editor_mode, EditorMode::Insert);
+        }
+    }
+
+    mod test_move_cursor {
+        use super::*;
+
+        #[test]
+        fn test_move_cursor_left() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            editor.lines.push(Line {
+                text: "Hello, World!".to_string(),
+                render: "Hello, World!".to_string(),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position.x = 5;
+            editor.move_cursor(CursorMovement::Left);
+            assert_eq!(editor.cursor_position.x, 4);
+
+            // Move left at start of line
+            editor.cursor_position.x = editor.num_columns_for_line_number as u16;
+
+            editor.lines.insert(
+                0,
+                Line {
+                    text: "Prev Line".to_string(),
+                    render: "Prev Line".to_string(),
+                    highlight: vec![],
+                    index: 0,
+                    has_open_multiline_comment: false,
+                },
+            );
+
+            editor.set_num_columns_for_line_number();
+            editor.cursor_position.y = 1;
+            editor.move_cursor(CursorMovement::Left);
+            assert_eq!(editor.cursor_position.y, 0);
+            assert_eq!(
+                editor.cursor_position.x,
+                9 + editor.num_columns_for_line_number as u16
+            );
+        }
+
+        #[test]
+        fn test_move_cursor_right() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            editor.lines.push(Line {
+                text: "Hello".to_string(),
+                render: "Hello".to_string(),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position.x = editor.num_columns_for_line_number as u16;
+            editor.move_cursor(CursorMovement::Right);
+            assert_eq!(
+                editor.cursor_position.x,
+                editor.num_columns_for_line_number as u16 + 1
+            );
+
+            // Move right at end of line
+            editor.cursor_position.x = 5 + editor.num_columns_for_line_number as u16;
+            editor.move_cursor(CursorMovement::Right);
+            assert_eq!(editor.cursor_position.y, 1);
+            assert_eq!(editor.cursor_position.x, 0);
+        }
+
+        #[test]
+        fn test_move_cursor_up() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            editor.lines.push(Line {
+                text: "Line 1".to_string(),
+                render: "Line 1".to_string(),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.lines.push(Line {
+                text: "Line 2".to_string(),
+                render: "Line 2".to_string(),
+                highlight: vec![],
+                index: 1,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position.y = 1;
+            editor.move_cursor(CursorMovement::Up);
+            assert_eq!(editor.cursor_position.y, 0);
+        }
+
+        #[test]
+        fn test_move_cursor_down() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            editor.lines.push(Line {
+                text: "Line 1".to_string(),
+                render: "Line 1".to_string(),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.lines.push(Line {
+                text: "Line 2".to_string(),
+                render: "Line 2".to_string(),
+                highlight: vec![],
+                index: 1,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position.y = 0;
+            editor.move_cursor(CursorMovement::Down);
+            assert_eq!(editor.cursor_position.y, 1);
+        }
+
+        #[test]
+        fn test_cursor_stays_within_bounds() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            editor.lines.push(Line {
+                text: "".to_string(),
+                render: "".to_string(),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position.x = editor.num_columns_for_line_number as u16;
+            editor.move_cursor(CursorMovement::Left);
+            assert_eq!(
+                editor.cursor_position.x,
+                editor.num_columns_for_line_number as u16
+            );
+
+            editor.cursor_position.y = 0;
+            editor.move_cursor(CursorMovement::Up);
+            assert_eq!(editor.cursor_position.y, 0);
+
+            editor.cursor_position.y = 1;
+            editor.move_cursor(CursorMovement::Down);
+            assert_eq!(editor.cursor_position.y, 1);
         }
     }
 }
