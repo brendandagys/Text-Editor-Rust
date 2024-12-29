@@ -1695,4 +1695,228 @@ mod unit_tests {
             .is_err());
         }
     }
+
+    mod test_process_keypress {
+        use super::*;
+
+        #[test]
+        fn test_cursor_movement() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            // Up on first line
+            editor.process_key(Key::Custom(EditorKey::ArrowUp));
+            assert_eq!(editor.cursor_position.y, 0);
+            assert_eq!(
+                editor.cursor_position.x as usize,
+                editor.num_columns_for_line_number
+            );
+
+            // Left
+            editor.cursor_position.x = 5;
+            editor.process_key(Key::Custom(EditorKey::ArrowLeft));
+            assert_eq!(editor.cursor_position.x, 4);
+
+            // Right
+            editor.cursor_position.x = 4;
+            editor.process_key(Key::Custom(EditorKey::ArrowRight));
+            assert_eq!(editor.cursor_position.x, 5);
+
+            // Down
+            editor.lines.push(Line {
+                text: String::from("World"),
+                render: String::from("World"),
+                highlight: vec![],
+                index: 1,
+                has_open_multiline_comment: false,
+            });
+
+            assert_eq!(editor.cursor_position.y, 0);
+            editor.process_key(Key::Custom(EditorKey::ArrowDown));
+            assert_eq!(editor.cursor_position.y, 1);
+            assert_eq!(editor.cursor_position.x, 5);
+
+            // Down on last line
+            editor.process_key(Key::Custom(EditorKey::ArrowDown));
+            assert_eq!(editor.cursor_position.y, 2);
+
+            // Up
+            editor.cursor_position.y = 1;
+            editor.process_key(Key::Custom(EditorKey::ArrowUp));
+            assert_eq!(editor.cursor_position.y, 0);
+            assert_eq!(editor.cursor_position.x, 0);
+
+            // Right at end of line
+            editor.cursor_position.x = (5 + editor.num_columns_for_line_number) as u16;
+            editor.process_key(Key::Custom(EditorKey::ArrowRight));
+            assert_eq!(
+                editor.cursor_position.x as usize,
+                editor.num_columns_for_line_number
+            );
+            assert_eq!(editor.cursor_position.y, 1);
+
+            // Left at start of line
+            editor.cursor_position.x = editor.num_columns_for_line_number as u16;
+            editor.process_key(Key::Custom(EditorKey::ArrowLeft));
+            assert_eq!(
+                editor.cursor_position.x as usize,
+                5 + editor.num_columns_for_line_number
+            );
+            assert_eq!(editor.cursor_position.y, 0);
+
+            // Home
+            editor.process_key(Key::Custom(EditorKey::Home));
+            assert_eq!(
+                editor.cursor_position.x as usize,
+                editor.num_columns_for_line_number
+            );
+
+            // End
+            editor.process_key(Key::Custom(EditorKey::End));
+            assert_eq!(
+                editor.cursor_position.x as usize,
+                5 + editor.num_columns_for_line_number
+            );
+        }
+
+        #[test]
+        fn test_delete() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            // Delete
+            editor.cursor_position.x = (2 + editor.num_columns_for_line_number) as u16;
+            editor.process_key(Key::Custom(EditorKey::Delete));
+            assert_eq!(editor.lines[0].text, "Helo");
+
+            // Backspace
+            editor.process_key(Key::Custom(EditorKey::Backspace));
+            assert_eq!(editor.lines[0].text, "Hlo");
+
+            // Backspace at start of line
+            editor.lines.push(Line {
+                text: String::from("World"),
+                render: String::from("World"),
+                highlight: vec![],
+                index: 1,
+                has_open_multiline_comment: false,
+            });
+
+            editor.cursor_position.x = editor.num_columns_for_line_number as u16;
+            editor.cursor_position.y = 1;
+
+            editor.process_key(Key::Custom(EditorKey::Backspace));
+
+            assert_eq!(editor.lines.len(), 1);
+            assert_eq!(editor.lines[0].text, "HloWorld");
+
+            // Delete at end of line
+            editor.lines.push(Line {
+                text: String::from("World"),
+                render: String::from("World"),
+                highlight: vec![],
+                index: 1,
+                has_open_multiline_comment: false,
+            });
+
+            assert_eq!(editor.cursor_position.y, 0);
+            editor.cursor_position.x =
+                (editor.num_columns_for_line_number + editor.lines[0].text.chars().count()) as u16;
+            editor.process_key(Key::Custom(EditorKey::Delete));
+            assert_eq!(editor.lines[0].text, "HloWorldWorld");
+        }
+
+        #[test]
+        fn test_insert_character() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            assert_eq!(editor.editor_mode, EditorMode::Insert);
+            editor.process_key(Key::U8(b'a'));
+            assert_eq!(editor.lines[0].text, "a");
+        }
+
+        #[test]
+        fn test_use_vim_movement_character_in_normal_mode() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+            editor.editor_mode = EditorMode::Normal;
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            // Right
+            editor.process_key(Key::U8(b'l'));
+            assert_eq!(editor.lines[0].text, "Hello");
+            assert_eq!(
+                editor.cursor_position.x as usize,
+                editor.num_columns_for_line_number + 1
+            );
+
+            // Left
+            editor.process_key(Key::U8(b'h'));
+            assert_eq!(editor.lines[0].text, "Hello");
+            assert_eq!(
+                editor.cursor_position.x as usize,
+                editor.num_columns_for_line_number
+            );
+
+            // Down
+            editor.lines.push(Line {
+                text: String::from("World"),
+                render: String::from("World"),
+                highlight: vec![],
+                index: 1,
+                has_open_multiline_comment: false,
+            });
+
+            editor.process_key(Key::U8(b'j'));
+            assert_eq!(editor.lines[0].text, "Hello");
+            assert_eq!(editor.cursor_position.y, 1);
+
+            // Up
+            editor.process_key(Key::U8(b'k'));
+            assert_eq!(editor.lines[1].text, "World");
+            assert_eq!(editor.cursor_position.y, 0);
+        }
+
+        #[test]
+        fn test_switch_editor_mode() {
+            let dummy_termios = get_populated_termios();
+            let mut editor = EditorInstance::new(dummy_termios);
+
+            assert_eq!(editor.editor_mode, EditorMode::Insert);
+            editor.process_key(Key::U8(b'\x1b'));
+            assert_eq!(editor.editor_mode, EditorMode::Normal);
+            editor.process_key(Key::U8(b'i'));
+            assert_eq!(editor.editor_mode, EditorMode::Insert);
+        }
+    }
 }
