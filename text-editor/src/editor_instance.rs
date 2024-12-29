@@ -2579,4 +2579,106 @@ mod unit_tests {
             editor.append_string_to_previous_line(" Should fail");
         }
     }
+
+    mod test_delete_character_from_line {
+        use super::*;
+
+        #[test]
+        fn test_delete_character_from_line_end() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Test"),
+                render: String::from("Test"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: 4 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 4 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.delete_character_from_line();
+
+            assert_eq!(editor.lines[0].text, "Tes");
+            assert!(editor.lines[0].render.contains("Tes"));
+        }
+
+        #[test]
+        fn test_delete_character_from_line_middle() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello World"),
+                render: String::from("Hello World"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: 7 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 7 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.delete_character_from_line();
+
+            assert_eq!(editor.lines[0].text, "Hello orld");
+            assert!(editor.lines[0].render.contains("Hello orld"));
+        }
+
+        #[test]
+        fn test_delete_character_from_line_start() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: 1 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 1 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.delete_character_from_line();
+
+            assert_eq!(editor.lines[0].text, "ello");
+            assert!(editor.lines[0].render.contains("ello"));
+        }
+
+        #[test]
+        #[should_panic(expected = "attempt to subtract with overflow")]
+        fn test_delete_character_from_line_panic_out_of_bounds() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Test"),
+                render: String::from("Test"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: editor.num_columns_for_line_number as u16,
+            };
+
+            editor.delete_character_from_line();
+        }
+    }
 }
