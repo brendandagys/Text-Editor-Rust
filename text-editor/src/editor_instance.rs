@@ -497,6 +497,7 @@ impl EditorInstance {
                 .read(true)
                 .write(true)
                 .create(true)
+                .truncate(true)
                 .mode(0o644) // Owner R/W; others R
                 .open(&file.path)
             {
@@ -511,28 +512,6 @@ impl EditorInstance {
             };
 
             let content = lines_to_string(&self.lines);
-
-            let content_length: u64 = match content.len().try_into() {
-                Ok(length) => length,
-                Err(e) => {
-                    self.set_status_message(
-                        &format!(
-                            "Failed to convert content length from usize to u64: {:?}",
-                            e
-                        ),
-                        true,
-                    );
-                    return;
-                }
-            };
-
-            if let Err(e) = fs_file.set_len(content_length) {
-                self.set_status_message(
-                    &format!("Failed to truncate {} to new length: {:?}", file.path, e),
-                    true,
-                );
-                return;
-            }
 
             match fs_file.write_all(content.as_bytes()) {
                 Ok(_) => {
