@@ -44,29 +44,29 @@ impl AnsiEscapeCode {
     }
 }
 
-pub fn move_cursor_to_top_left() -> () {
+pub fn move_cursor_to_top_left()  {
     write!(io::stdout(), "{}", AnsiEscapeCode::CursorToTopLeft.as_str())
         .expect("Failed to position cursor at top-left before draw");
     flush_stdout();
 }
 
-pub fn clear_display() -> () {
+pub fn clear_display()  {
     write!(io::stdout(), "{}", AnsiEscapeCode::ClearScreen.as_str())
         .expect("Failed to clear screen");
     flush_stdout();
 }
 
-fn hide_cursor() -> () {
+fn hide_cursor()  {
     write!(io::stdout(), "{}", AnsiEscapeCode::CursorHide.as_str()).expect("Failed to hide cursor");
     flush_stdout();
 }
 
-fn show_cursor() -> () {
+fn show_cursor()  {
     write!(io::stdout(), "{}", AnsiEscapeCode::CursorShow.as_str()).expect("Failed to show cursor");
     flush_stdout();
 }
 
-pub fn refresh_screen(editor_instance: &mut EditorInstance) -> () {
+pub fn refresh_screen(editor_instance: &mut EditorInstance)  {
     // Escape sequences begin with escape characters `\x1b` (27) and '['
     // Escape sequence commands take arguments that come before the command itself
     // Arguments are separated by a ';'

@@ -163,7 +163,7 @@ impl EditorInstance {
         (char.is_ascii_punctuation() || char.is_ascii_whitespace() || char == '\n') && char != '_'
     }
 
-    fn set_line_highlight(&mut self, line_index: usize) -> () {
+    fn set_line_highlight(&mut self, line_index: usize) {
         let chars = &mut self.lines[line_index].render.chars();
         let num_chars = chars.clone().count();
         let mut highlight = vec![HighlightType::Normal; num_chars];
@@ -404,13 +404,13 @@ impl EditorInstance {
         }
     }
 
-    fn update_line_highlights(&mut self) -> () {
+    fn update_line_highlights(&mut self) {
         for line_index in 0..self.lines.len() {
             self.set_line_highlight(line_index);
         }
     }
 
-    fn set_syntax_from_file_name(&mut self) -> () {
+    fn set_syntax_from_file_name(&mut self) {
         match &self.file {
             None => self.syntax = None,
             Some(file) => {
@@ -475,7 +475,7 @@ impl EditorInstance {
         self.editor_mode = EditorMode::Normal;
     }
 
-    fn save(&mut self) -> () {
+    fn save(&mut self) {
         if self.file.is_none() {
             match prompt_user::<fn(&mut EditorInstance, &str, Key)>(self, "Save as: ", None) {
                 Some(file_path) => {
@@ -551,7 +551,7 @@ impl EditorInstance {
         }
     }
 
-    pub fn process_key(&mut self, key: Key) -> () {
+    pub fn process_key(&mut self, key: Key) {
         match key {
             Key::U8(b'\r') => self.insert_line(), // Enter
 
@@ -686,7 +686,7 @@ impl EditorInstance {
         self.quit_confirmations = 0;
     }
 
-    pub fn move_cursor(&mut self, direction: CursorMovement) -> () {
+    pub fn move_cursor(&mut self, direction: CursorMovement) {
         match direction {
             CursorMovement::Left => {
                 if self.cursor_position.x as usize > self.num_columns_for_line_number {
@@ -753,7 +753,7 @@ impl EditorInstance {
         );
     }
 
-    pub fn move_cursor_to_position(&self) -> () {
+    pub fn move_cursor_to_position(&self) {
         // H: Cursor Position, e.g. <esc>[1;1H]
         write!(
             io::stdout(),
@@ -811,7 +811,7 @@ impl EditorInstance {
         return calculated_x_position;
     }
 
-    pub fn scroll(&mut self) -> () {
+    pub fn scroll(&mut self) {
         let num_columns_for_line_number: u16 = self
             .num_columns_for_line_number
             .try_into()
@@ -840,7 +840,7 @@ impl EditorInstance {
         }
     }
 
-    fn insert_character_into_line(&mut self, character: char) -> () {
+    fn insert_character_into_line(&mut self, character: char) {
         let line_index = self.cursor_position.y as usize;
         let line = &mut self.lines[line_index];
 
@@ -852,7 +852,7 @@ impl EditorInstance {
         self.set_line_highlight(line_index);
     }
 
-    fn insert_character(&mut self, character: char) -> () {
+    fn insert_character(&mut self, character: char) {
         if self.cursor_position.y as usize == self.lines.len() {
             self.lines.push(Line {
                 text: String::new(),
@@ -870,7 +870,7 @@ impl EditorInstance {
         self.edited = true;
     }
 
-    fn append_string_to_previous_line(&mut self, string: &str) -> () {
+    fn append_string_to_previous_line(&mut self, string: &str) {
         let previous_line_index = (self.cursor_position.y - 1) as usize;
         let previous_line = &mut self.lines[previous_line_index];
         previous_line.text.push_str(string);
@@ -878,7 +878,7 @@ impl EditorInstance {
         self.set_line_highlight(previous_line_index);
     }
 
-    fn delete_character_from_line(&mut self) -> () {
+    fn delete_character_from_line(&mut self) {
         let line_index = self.cursor_position.y as usize;
         let line = &mut self.lines[line_index];
         line.text
@@ -887,7 +887,7 @@ impl EditorInstance {
         self.set_line_highlight(line_index);
     }
 
-    fn delete_character(&mut self) -> () {
+    fn delete_character(&mut self) {
         let line_index = self.cursor_position.y as usize;
 
         if line_index == self.lines.len()
@@ -935,7 +935,7 @@ impl EditorInstance {
         self.edited = true;
     }
 
-    fn insert_line(&mut self) -> () {
+    fn insert_line(&mut self) {
         let line_index = self.cursor_position.y as usize;
 
         if self.cursor_position.x as usize == self.num_columns_for_line_number {
@@ -999,7 +999,7 @@ impl EditorInstance {
         self.edited = true;
     }
 
-    fn find_text_callback(&mut self, query: &str, key: Key) -> () {
+    fn find_text_callback(&mut self, query: &str, key: Key) {
         if let Some(saved_highlight) = self.saved_highlight.take() {
             self.lines[saved_highlight.line_index].highlight = saved_highlight.highlight;
         }
@@ -1102,7 +1102,7 @@ impl EditorInstance {
         }
     }
 
-    fn prompt_and_go_to_line(&mut self) -> () {
+    fn prompt_and_go_to_line(&mut self) {
         if let Some(line) = prompt_user::<fn(&mut EditorInstance, &str, Key)>(
             self,
             &format!(
@@ -1133,7 +1133,7 @@ impl EditorInstance {
         }
     }
 
-    fn prompt_and_find_text(&mut self) -> () {
+    fn prompt_and_find_text(&mut self) {
         let saved_cursor_position = self.cursor_position.clone();
         let saved_column_scrolled_to = self.column_scrolled_to;
         let saved_line_scrolled_to = self.line_scrolled_to;
@@ -1149,7 +1149,7 @@ impl EditorInstance {
         }
     }
 
-    fn add_welcome_message_to_buffer(&self, buffer: &mut String, message: &mut String) -> () {
+    fn add_welcome_message_to_buffer(&self, buffer: &mut String, message: &mut String) {
         message.truncate(self.window_size.columns as usize);
 
         let message_length: u16 = message
@@ -1172,7 +1172,7 @@ impl EditorInstance {
         buffer.push_str(&message);
     }
 
-    fn set_num_columns_for_line_number(&mut self, line_number_gap: u8) -> () {
+    fn set_num_columns_for_line_number(&mut self, line_number_gap: u8) {
         let num_lines = self.lines.len();
 
         self.num_columns_for_line_number = if num_lines > 0 {
@@ -1191,7 +1191,7 @@ impl EditorInstance {
 
     /// Uses a String as a buffer to store all lines, before calling `write` once
     /// Prints a welcome message in the middle of the screen using its row/column count
-    pub fn draw_rows(&mut self) -> () {
+    pub fn draw_rows(&mut self) {
         let mut buffer = String::new();
 
         if (self.cursor_position.x as usize) < self.num_columns_for_line_number {
@@ -1328,7 +1328,7 @@ impl EditorInstance {
         buffer
     }
 
-    pub fn draw_status_bar(&self) -> () {
+    pub fn draw_status_bar(&self) {
         let mut buffer = AnsiEscapeCode::Reset.as_string();
 
         buffer.push_str(AnsiEscapeCode::ReverseMode.as_str());
@@ -1399,7 +1399,7 @@ impl EditorInstance {
         flush_stdout();
     }
 
-    pub fn set_status_message(&mut self, message: &str, error: bool) -> () {
+    pub fn set_status_message(&mut self, message: &str, error: bool) {
         self.status_message = Some(StatusMessage {
             message: message.to_string(),
             time_set: Instant::now(),
@@ -1407,7 +1407,7 @@ impl EditorInstance {
         });
     }
 
-    pub fn draw_status_message_bar(&mut self) -> () {
+    pub fn draw_status_message_bar(&mut self) {
         let mut buffer = AnsiEscapeCode::Reset.as_string();
 
         buffer.push_str(AnsiEscapeCode::EraseLineToRight.as_str());

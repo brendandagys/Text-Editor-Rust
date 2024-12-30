@@ -94,7 +94,7 @@ pub fn read_key_input() -> Option<Key> {
     }
 }
 
-pub fn process_keypress(editor: &mut EditorInstance) -> () {
+pub fn process_keypress(editor: &mut EditorInstance) {
     if let Some(key) = read_key_input() {
         editor.process_key(key);
     }

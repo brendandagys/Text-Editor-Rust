@@ -9,7 +9,7 @@ pub fn get_populated_termios() -> Termios {
     Termios::from_fd(io::stdin().as_raw_fd()).expect("Failed to get current terminal configuration")
 }
 
-pub fn disable_raw_mode(original_termios: Termios) -> () {
+pub fn disable_raw_mode(original_termios: Termios) {
     let stdin_fd = io::stdin().as_raw_fd();
 
     tcsetattr(stdin_fd, TCSAFLUSH, &original_termios)
