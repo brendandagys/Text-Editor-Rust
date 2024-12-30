@@ -1444,8 +1444,7 @@ mod unit_tests {
 
     #[test]
     fn test_new_editor_instance() {
-        let dummy_termios = get_populated_termios();
-        let editor = EditorInstance::new(dummy_termios);
+        let editor = EditorInstance::new(get_populated_termios());
 
         // Check initial properties
         assert_eq!(editor.cursor_position.x, 0);
@@ -1467,8 +1466,7 @@ mod unit_tests {
 
     #[test]
     fn test_get_current_line() {
-        let dummy_termios = get_populated_termios();
-        let mut editor = EditorInstance::new(dummy_termios);
+        let mut editor = EditorInstance::new(get_populated_termios());
 
         // No lines
         assert!(editor.get_current_line().is_none());
@@ -1579,8 +1577,7 @@ mod unit_tests {
 
         #[test]
         fn test_with_supported_file_types() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             [
                 ("test.rs", "Rust"),
@@ -1602,8 +1599,7 @@ mod unit_tests {
 
         #[test]
         fn test_with_unsupported_file_types() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.file = Some(File {
                 name: "test.foo".to_string(),
@@ -1626,8 +1622,7 @@ mod unit_tests {
 
         #[test]
         fn test_open_valid_file() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
             editor.editor_mode = EditorMode::Insert;
 
             let dir = tempdir().unwrap();
@@ -1661,8 +1656,7 @@ mod unit_tests {
 
         #[test]
         fn test_open_file_with_syntax_detection() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             let dir = tempdir().unwrap();
             let file_path = dir.path().join("test.rs");
@@ -1680,8 +1674,7 @@ mod unit_tests {
 
         #[test]
         fn test_open_non_existent_file() {
-            let dummy_termios = get_populated_termios();
-            let editor = EditorInstance::new(dummy_termios);
+            let editor = EditorInstance::new(get_populated_termios());
 
             let non_existent_file = "/non/existent/file.txt";
 
@@ -1702,8 +1695,7 @@ mod unit_tests {
 
         #[test]
         fn test_cursor_movement() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.lines.push(Line {
                 text: String::from("Hello"),
@@ -1792,8 +1784,7 @@ mod unit_tests {
 
         #[test]
         fn test_delete() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.lines.push(Line {
                 text: String::from("Hello"),
@@ -1849,8 +1840,7 @@ mod unit_tests {
 
         #[test]
         fn test_insert_character() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             assert_eq!(editor.editor_mode, EditorMode::Insert);
             editor.process_key(Key::U8(b'a'));
@@ -1859,8 +1849,7 @@ mod unit_tests {
 
         #[test]
         fn test_use_vim_movement_character_in_normal_mode() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
             editor.editor_mode = EditorMode::Normal;
 
             editor.lines.push(Line {
@@ -1910,8 +1899,7 @@ mod unit_tests {
 
         #[test]
         fn test_switch_editor_mode() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             assert_eq!(editor.editor_mode, EditorMode::Insert);
             editor.process_key(Key::U8(b'\x1b'));
@@ -1926,8 +1914,7 @@ mod unit_tests {
 
         #[test]
         fn test_move_cursor_left() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.lines.push(Line {
                 text: "Hello, World!".to_string(),
@@ -1969,8 +1956,7 @@ mod unit_tests {
 
         #[test]
         fn test_move_cursor_right() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.lines.push(Line {
                 text: "Hello".to_string(),
@@ -1998,8 +1984,7 @@ mod unit_tests {
 
         #[test]
         fn test_move_cursor_up() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.lines.push(Line {
                 text: "Line 1".to_string(),
@@ -2026,8 +2011,7 @@ mod unit_tests {
 
         #[test]
         fn test_move_cursor_down() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.lines.push(Line {
                 text: "Line 1".to_string(),
@@ -2054,8 +2038,7 @@ mod unit_tests {
 
         #[test]
         fn test_cursor_stays_within_bounds() {
-            let dummy_termios = get_populated_termios();
-            let mut editor = EditorInstance::new(dummy_termios);
+            let mut editor = EditorInstance::new(get_populated_termios());
 
             editor.lines.push(Line {
                 text: "".to_string(),
