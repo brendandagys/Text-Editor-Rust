@@ -1,7 +1,7 @@
 use crate::{
     globals::{
         Syntax, DEFAULT_STATUS_BAR_MESSAGE, HIGHLIGHT_NUMBERS, HIGHLIGHT_STRINGS, LINE_NUMBER_GAP,
-        QUIT_CONFIRMATION_COUNT, SYNTAX_CONFIGURATIONS, TAB_SIZE, VERSION,
+        QUIT_CONFIRMATION_COUNT, SYNTAX_CONFIGURATIONS, TAB_SIZE, WELCOME_MESSAGE,
     },
     input::{EditorKey, Key},
     output::{clear_display, move_cursor_to_top_left, prompt_user, AnsiEscapeCode},
@@ -1149,8 +1149,7 @@ impl EditorInstance {
         }
     }
 
-    fn add_welcome_message_to_buffer(&self, buffer: &mut String) -> () {
-        let mut message = format!("Brendan's text editor --- version {VERSION}");
+    fn add_welcome_message_to_buffer(&self, buffer: &mut String, message: &mut String) -> () {
         message.truncate(self.window_size.columns as usize);
 
         let message_length: u16 = message
@@ -1207,7 +1206,7 @@ impl EditorInstance {
 
             if scrolled_to_row as usize >= self.lines.len() {
                 if self.lines.len() == 0 && row == self.window_size.rows / 3 {
-                    self.add_welcome_message_to_buffer(&mut buffer);
+                    self.add_welcome_message_to_buffer(&mut buffer, &mut WELCOME_MESSAGE.clone());
                 } else {
                     buffer.push('~');
                 }
@@ -3068,6 +3067,49 @@ mod unit_tests {
             assert_eq!(editor.previous_search_match_line_index, None);
             assert_eq!(editor.search_direction, SearchDirection::Forward);
             assert!(editor.saved_highlight.is_none());
+        }
+    }
+
+    mod test_add_welcome_message_to_buffer {
+        use super::*;
+
+        #[test]
+        fn test_add_welcome_message_to_buffer_fits_window() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.window_size.columns = 39;
+
+            let mut buffer = String::new();
+            let mut message = String::from("Brendan's text editor --- version 1.0.0");
+            editor.add_welcome_message_to_buffer(&mut buffer, &mut message);
+
+            let expected_message = "Brendan's text editor --- version 1.0.0";
+            assert_eq!(buffer, expected_message);
+        }
+
+        #[test]
+        fn test_add_welcome_message_to_buffer_truncated_message() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.window_size.columns = 10;
+
+            let mut buffer = String::new();
+            let mut message = String::from("Brendan's text editor --- version 1.0.0");
+            editor.add_welcome_message_to_buffer(&mut buffer, &mut message);
+
+            let expected_message = "Brendan's ";
+            assert_eq!(buffer, expected_message);
+        }
+
+        #[test]
+        fn test_add_welcome_message_to_buffer_padding_applies() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.window_size.columns = 50;
+
+            let mut buffer = String::new();
+            let mut message = String::from("Brendan's text editor --- version 1.0.0");
+            editor.add_welcome_message_to_buffer(&mut buffer, &mut message);
+
+            let expected_message = "~    Brendan's text editor --- version 1.0.0";
+            assert_eq!(buffer, expected_message);
         }
     }
 }

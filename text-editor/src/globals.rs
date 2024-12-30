@@ -1,6 +1,11 @@
+use once_cell::sync::Lazy;
 use std::sync::{Mutex, MutexGuard};
 
-pub const VERSION: &str = "0.0.1";
+pub const VERSION: &str = "1.0.0";
+
+pub static WELCOME_MESSAGE: Lazy<String> =
+    Lazy::new(|| format!("Brendan's text editor --- version {VERSION}"));
+
 pub const TAB_SIZE: u8 = 4;
 pub const LINE_NUMBER_GAP: u8 = 3;
 pub const QUIT_CONFIRMATION_COUNT: u8 = 1;
