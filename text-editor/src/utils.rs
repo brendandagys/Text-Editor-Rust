@@ -160,3 +160,113 @@ pub fn get_file_name_from_path(file_path: &str) -> String {
         .expect("Failed to parse file from provided file path")
         .into()
 }
+
+#[cfg(test)]
+mod unit_tests {
+    use super::*;
+    use crate::editor_instance::Line;
+
+    mod test_lines_to_string {
+        use super::*;
+
+        #[test]
+        fn test_lines_to_string_empty() {
+            let lines: Vec<Line> = Vec::new();
+            assert_eq!(lines_to_string(&lines), "");
+        }
+
+        #[test]
+        fn test_lines_to_string_single_line() {
+            let lines = vec![Line {
+                text: String::from("Line 1"),
+                render: String::from("Line 1"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            }];
+
+            assert_eq!(lines_to_string(&lines), "Line 1\n");
+        }
+
+        #[test]
+        fn test_lines_to_string_multiple_lines() {
+            let lines = vec![
+                Line {
+                    text: String::from("Line 1"),
+                    render: String::from("Line 1"),
+                    highlight: vec![],
+                    index: 0,
+                    has_open_multiline_comment: false,
+                },
+                Line {
+                    text: String::from("Line 2"),
+                    render: String::from("Line 2"),
+                    highlight: vec![],
+                    index: 1,
+                    has_open_multiline_comment: false,
+                },
+            ];
+
+            assert_eq!(lines_to_string(&lines), "Line 1\nLine 2\n");
+        }
+
+        #[test]
+        fn test_lines_to_string_special_characters() {
+            let lines = vec![
+                Line {
+                    text: String::from("Line with spaces    "),
+                    render: String::from("Line with spaces    "),
+                    highlight: vec![],
+                    index: 0,
+                    has_open_multiline_comment: false,
+                },
+                Line {
+                    text: String::from("Line\twith\ttabs"),
+                    render: String::from("Line\twith\ttabs"),
+                    highlight: vec![],
+                    index: 1,
+                    has_open_multiline_comment: false,
+                },
+                Line {
+                    text: String::from("Line\nwith\nnewlines"),
+                    render: String::from("Line\nwith\nnewlines"),
+                    highlight: vec![],
+                    index: 2,
+                    has_open_multiline_comment: false,
+                },
+            ];
+
+            assert_eq!(
+                lines_to_string(&lines),
+                "Line with spaces    \nLine\twith\ttabs\nLine\nwith\nnewlines\n"
+            );
+        }
+    }
+
+    mod test_get_file_name_from_path {
+        use super::*;
+
+        #[test]
+        fn test_get_file_name_from_path_basic() {
+            let file_path = "/home/user/documents/file.txt";
+            assert_eq!(get_file_name_from_path(file_path), "file.txt");
+        }
+
+        #[test]
+        fn test_get_file_name_from_path_root_directory() {
+            let file_path = "/file.txt";
+            assert_eq!(get_file_name_from_path(file_path), "file.txt");
+        }
+
+        #[test]
+        fn test_get_file_name_from_path_no_file_name() {
+            let file_path = "/home/user/documents/";
+            assert_eq!(get_file_name_from_path(file_path), "");
+        }
+
+        #[test]
+        fn test_get_file_name_from_path_empty() {
+            assert_eq!(get_file_name_from_path(""), "");
+        }
+    }
+}

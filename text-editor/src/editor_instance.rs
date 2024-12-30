@@ -34,7 +34,7 @@ pub enum CursorMovement {
 }
 
 #[derive(Clone, Debug, PartialEq)]
-enum HighlightType {
+pub enum HighlightType {
     Normal,
     Number,
     String,
@@ -48,10 +48,10 @@ enum HighlightType {
 #[derive(Clone)]
 pub struct Line {
     pub text: String,
-    render: String,
-    highlight: Vec<HighlightType>,
-    index: usize,
-    has_open_multiline_comment: bool,
+    pub render: String,
+    pub highlight: Vec<HighlightType>,
+    pub index: usize,
+    pub has_open_multiline_comment: bool,
 }
 
 struct StatusMessage {
