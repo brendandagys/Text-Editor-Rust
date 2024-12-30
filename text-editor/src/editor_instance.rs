@@ -751,7 +751,7 @@ impl EditorInstance {
 
         (0..cursor_x_position).fold(0, |acc, x| {
             match current_line.text.chars().nth(x as usize) {
-                Some(char) if char == '\t' => acc + TAB_SIZE as u16 - (acc % TAB_SIZE as u16),
+                Some('\t') => acc + TAB_SIZE as u16 - (acc % TAB_SIZE as u16),
                 _ => acc + 1,
             }
         })
@@ -772,7 +772,7 @@ impl EditorInstance {
             let char = text_iterator.next();
 
             match char {
-                Some(char) if char == '\t' => {
+                Some('\t') => {
                     calculated_render_x_position +=
                         TAB_SIZE as u16 - (calculated_render_x_position % TAB_SIZE as u16)
                 }
