@@ -2818,4 +2818,135 @@ mod unit_tests {
             assert!(!editor.edited);
         }
     }
+
+    mod test_insert_line {
+        use super::*;
+
+        #[test]
+        fn test_insert_line_at_line_start() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Existing line"),
+                render: String::from("Existing line"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_line();
+
+            assert_eq!(editor.lines.len(), 2);
+            assert_eq!(editor.lines[0].text, "");
+            assert_eq!(editor.lines[1].text, "Existing line");
+            assert_eq!(editor.lines[1].index, 1);
+            assert_eq!(editor.cursor_position.y, 1);
+            assert_eq!(
+                editor.cursor_position.x,
+                editor.num_columns_for_line_number as u16
+            );
+            assert!(editor.edited);
+        }
+
+        #[test]
+        fn test_insert_line_in_middle_of_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello, World"),
+                render: String::from("Hello, World"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: 7 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 7 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_line();
+
+            assert_eq!(editor.lines.len(), 2);
+            assert_eq!(editor.lines[0].text, "Hello, ");
+            assert_eq!(editor.lines[1].text, "World");
+            assert_eq!(editor.lines[1].index, 1);
+            assert_eq!(editor.cursor_position.y, 1);
+            assert_eq!(
+                editor.cursor_position.x,
+                editor.num_columns_for_line_number as u16
+            );
+            assert!(editor.edited);
+        }
+
+        #[test]
+        fn test_insert_line_at_end_of_line() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines.push(Line {
+                text: String::from("Hello"),
+                render: String::from("Hello"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number();
+
+            editor.cursor_position = CursorPosition {
+                x: 5 + editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 5 + editor.num_columns_for_line_number as u16,
+            };
+
+            editor.insert_line();
+
+            assert_eq!(editor.lines.len(), 2);
+            assert_eq!(editor.lines[0].text, "Hello");
+            assert_eq!(editor.lines[1].text, "");
+            assert_eq!(editor.lines[1].index, 1);
+            assert_eq!(editor.cursor_position.y, 1);
+            assert_eq!(
+                editor.cursor_position.x,
+                editor.num_columns_for_line_number as u16
+            );
+            assert!(editor.edited);
+        }
+
+        #[test]
+        fn test_insert_line_empty_editor() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines = vec![];
+
+            editor.cursor_position = CursorPosition {
+                x: editor.num_columns_for_line_number as u16,
+                y: 0,
+                render_x: 0,
+            };
+
+            editor.insert_line();
+
+            assert_eq!(editor.lines.len(), 1);
+            assert_eq!(editor.lines[0].text, "");
+            assert_eq!(editor.lines[0].index, 0);
+            assert_eq!(editor.cursor_position.y, 1);
+            assert_eq!(
+                editor.cursor_position.x,
+                editor.num_columns_for_line_number as u16
+            );
+            assert!(editor.edited);
+        }
+    }
 }
