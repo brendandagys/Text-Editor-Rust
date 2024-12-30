@@ -2932,4 +2932,142 @@ mod unit_tests {
             assert!(editor.edited);
         }
     }
+
+    mod test_find_text_callback {
+        use super::*;
+
+        #[test]
+        fn test_find_text_callback_forward_match() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+
+            editor.lines = vec![
+                Line {
+                    text: String::from("This is a test"),
+                    render: String::from("This is a test"),
+                    highlight: vec![HighlightType::Normal; 14],
+                    index: 0,
+                    has_open_multiline_comment: false,
+                },
+                Line {
+                    text: String::from("Another test line"),
+                    render: String::from("Another test line"),
+                    highlight: vec![HighlightType::Normal; 18],
+                    index: 1,
+                    has_open_multiline_comment: false,
+                },
+            ];
+
+            editor.find_text_callback("test", Key::Custom(EditorKey::ArrowDown));
+
+            assert_eq!(editor.previous_search_match_line_index, Some(0));
+            assert_eq!(editor.cursor_position.y, 0);
+            assert_eq!(
+                editor.cursor_position.x,
+                10 + editor.num_columns_for_line_number as u16
+            );
+            assert_eq!(
+                editor.lines[0].highlight[10..14],
+                vec![
+                    HighlightType::SearchMatch,
+                    HighlightType::SearchMatch,
+                    HighlightType::SearchMatch,
+                    HighlightType::SearchMatch
+                ]
+            );
+        }
+
+        #[test]
+        fn test_find_text_callback_backward_match() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.lines = vec![
+                Line {
+                    text: String::from("This is a test"),
+                    render: String::from("This is a test"),
+                    highlight: vec![HighlightType::Normal; 14],
+                    index: 0,
+                    has_open_multiline_comment: false,
+                },
+                Line {
+                    text: String::from("Another test line"),
+                    render: String::from("Another test line"),
+                    highlight: vec![HighlightType::Normal; 18],
+                    index: 1,
+                    has_open_multiline_comment: false,
+                },
+            ];
+
+            editor.previous_search_match_line_index = Some(1);
+
+            editor.find_text_callback("test", Key::Custom(EditorKey::ArrowUp));
+
+            assert_eq!(editor.previous_search_match_line_index, Some(0));
+            assert_eq!(editor.cursor_position.y, 0);
+            assert_eq!(
+                editor.cursor_position.x,
+                10 + editor.num_columns_for_line_number as u16
+            );
+            assert_eq!(
+                editor.lines[0].highlight[10..14],
+                vec![
+                    HighlightType::SearchMatch,
+                    HighlightType::SearchMatch,
+                    HighlightType::SearchMatch,
+                    HighlightType::SearchMatch
+                ]
+            );
+        }
+
+        #[test]
+        fn test_find_text_callback_no_match() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.lines = vec![
+                Line {
+                    text: String::from("This is a test"),
+                    render: String::from("This is a test"),
+                    highlight: vec![HighlightType::Normal; 14],
+                    index: 0,
+                    has_open_multiline_comment: false,
+                },
+                Line {
+                    text: String::from("Another test line"),
+                    render: String::from("Another test line"),
+                    highlight: vec![HighlightType::Normal; 18],
+                    index: 1,
+                    has_open_multiline_comment: false,
+                },
+            ];
+
+            editor.find_text_callback("nonexistent", Key::Custom(EditorKey::ArrowDown));
+
+            assert_eq!(editor.previous_search_match_line_index, None);
+            assert_eq!(editor.cursor_position.y, 0);
+            assert_eq!(editor.cursor_position.x, 0);
+            for line in &editor.lines {
+                assert!(!line
+                    .highlight
+                    .iter()
+                    .any(|h| *h == HighlightType::SearchMatch));
+            }
+        }
+
+        #[test]
+        fn test_find_text_callback_escape_key() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.lines = vec![Line {
+                text: String::from("This is a test"),
+                render: String::from("This is a test"),
+                highlight: vec![HighlightType::Normal; 14],
+                index: 0,
+                has_open_multiline_comment: false,
+            }];
+
+            editor.previous_search_match_line_index = Some(0);
+
+            editor.find_text_callback("test", Key::U8(b'\x1b'));
+
+            assert_eq!(editor.previous_search_match_line_index, None);
+            assert_eq!(editor.search_direction, SearchDirection::Forward);
+            assert!(editor.saved_highlight.is_none());
+        }
+    }
 }
