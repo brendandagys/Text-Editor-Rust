@@ -166,6 +166,45 @@ mod unit_tests {
     use super::*;
     use crate::editor_instance::Line;
 
+    mod test_ctrl_key {
+        use super::*;
+
+        #[test]
+        fn test_ctrl_key_uppercase_letters() {
+            for i in 0..26 {
+                let ch = (b'A' + i) as char;
+                let expected = i + 1; // Ctrl+A -> 1, Ctrl+B -> 2, ..., Ctrl+Z -> 26
+                assert_eq!(ctrl_key(ch), expected);
+            }
+        }
+
+        #[test]
+        fn test_ctrl_key_lowercase_letters() {
+            for i in 0..26 {
+                let ch = (b'a' + i) as char;
+                let expected = i + 1; // Ctrl+a -> 1, Ctrl+b -> 2, ..., Ctrl+z -> 26
+                assert_eq!(ctrl_key(ch), expected);
+            }
+        }
+
+        #[test]
+        fn test_ctrl_key_with_non_alphabetic_characters() {
+            // Test with space and other characters
+            let test_cases = vec![
+                (' ', 0),         // Ctrl+Space should map to 0
+                ('0', 48 & 0x1f), // Ctrl+0 should be 48 & 0x1f
+                ('1', 49 & 0x1f), // Ctrl+1 should be 49 & 0x1f
+                ('!', 33 & 0x1f), // Ctrl+! should be 33 & 0x1f
+                ('@', 64 & 0x1f), // Ctrl+@ should be 64 & 0x1f
+                ('#', 35 & 0x1f), // Ctrl+# should be 35 & 0x1f
+            ];
+
+            for (ch, expected) in test_cases {
+                assert_eq!(ctrl_key(ch), expected);
+            }
+        }
+    }
+
     mod test_lines_to_string {
         use super::*;
 
