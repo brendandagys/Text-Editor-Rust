@@ -461,7 +461,7 @@ impl EditorInstance {
                 has_open_multiline_comment: false,
             });
 
-            self.set_num_columns_for_line_number();
+            self.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             self.set_line_highlight(index);
         }
 
@@ -862,7 +862,7 @@ impl EditorInstance {
                 has_open_multiline_comment: false,
             });
 
-            self.set_num_columns_for_line_number();
+            self.set_num_columns_for_line_number(LINE_NUMBER_GAP);
         }
 
         self.insert_character_into_line(character);
@@ -928,7 +928,7 @@ impl EditorInstance {
                 line.index -= 1;
             }
 
-            self.set_num_columns_for_line_number();
+            self.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             self.cursor_position.y -= 1;
         }
 
@@ -988,7 +988,7 @@ impl EditorInstance {
             }
         }
 
-        self.set_num_columns_for_line_number();
+        self.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
         self.cursor_position.y += 1;
         self.cursor_position.x = self
@@ -1172,11 +1172,11 @@ impl EditorInstance {
         buffer.push_str(&message);
     }
 
-    fn set_num_columns_for_line_number(&mut self) -> () {
+    fn set_num_columns_for_line_number(&mut self, line_number_gap: u8) -> () {
         let num_lines = self.lines.len();
 
         self.num_columns_for_line_number = if num_lines > 0 {
-            num_lines.to_string().len() + LINE_NUMBER_GAP as usize
+            num_lines.to_string().len() + line_number_gap as usize
         } else {
             0
         };
@@ -1704,7 +1704,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             // Up on first line
             editor.process_key(Key::Custom(EditorKey::ArrowUp));
@@ -1793,7 +1793,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             // Delete
             editor.cursor_position.x = 2 + editor.num_columns_for_line_number as u16;
@@ -1859,7 +1859,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             // Right
             editor.process_key(Key::U8(b'l'));
@@ -1923,7 +1923,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position.x = 5;
             editor.move_cursor(CursorMovement::Left);
@@ -1943,7 +1943,7 @@ mod unit_tests {
                 },
             );
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position.y = 1;
             editor.move_cursor(CursorMovement::Left);
             assert_eq!(editor.cursor_position.y, 0);
@@ -1965,7 +1965,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position.x = editor.num_columns_for_line_number as u16;
             editor.move_cursor(CursorMovement::Right);
@@ -2001,7 +2001,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position.y = 1;
             editor.move_cursor(CursorMovement::Up);
@@ -2028,7 +2028,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position.y = 0;
             editor.move_cursor(CursorMovement::Down);
@@ -2047,7 +2047,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position.x = editor.num_columns_for_line_number as u16;
             editor.move_cursor(CursorMovement::Left);
@@ -2140,7 +2140,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             assert_eq!(editor.render_x_to_cursor_x(0), 0);
             assert_eq!(editor.render_x_to_cursor_x(3), 3);
@@ -2159,7 +2159,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             assert_eq!(editor.render_x_to_cursor_x(0), 0);
             assert_eq!(editor.render_x_to_cursor_x(2), 2);
@@ -2179,7 +2179,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             assert_eq!(editor.render_x_to_cursor_x(0), 0);
             // Cursor can not move to index 1 as there are no characters
@@ -2197,7 +2197,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             assert_eq!(editor.render_x_to_cursor_x(10), 3);
         }
@@ -2254,7 +2254,7 @@ mod unit_tests {
                 };
                 10
             ];
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
                 y: 5,
@@ -2282,7 +2282,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position = CursorPosition {
                 x: 10,
                 y: 0,
@@ -2310,7 +2310,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
                 y: 0,
@@ -2334,7 +2334,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: 2 + editor.num_columns_for_line_number as u16,
@@ -2359,7 +2359,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position = CursorPosition {
                 x: 5 + editor.num_columns_for_line_number as u16,
                 y: 0,
@@ -2383,7 +2383,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position = CursorPosition {
                 x: 3 + editor.num_columns_for_line_number as u16,
                 y: 0,
@@ -2408,7 +2408,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position = CursorPosition {
                 x: 5 + editor.num_columns_for_line_number as u16,
                 y: 0,
@@ -2435,7 +2435,7 @@ mod unit_tests {
                 y: 0,
                 render_x: 0,
             };
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.lines.clear();
             editor.insert_character('a');
 
@@ -2459,7 +2459,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position = CursorPosition {
                 x: 5 + editor.num_columns_for_line_number as u16,
                 y: 0,
@@ -2488,7 +2488,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
                 y: 1,
@@ -2522,7 +2522,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
@@ -2550,7 +2550,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
@@ -2576,7 +2576,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: 4 + editor.num_columns_for_line_number as u16,
@@ -2601,7 +2601,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: 7 + editor.num_columns_for_line_number as u16,
@@ -2626,7 +2626,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: 1 + editor.num_columns_for_line_number as u16,
@@ -2652,7 +2652,7 @@ mod unit_tests {
                 index: 0,
                 has_open_multiline_comment: false,
             });
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
@@ -2679,7 +2679,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: 7 + editor.num_columns_for_line_number as u16,
@@ -2716,7 +2716,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
@@ -2748,7 +2748,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
@@ -2780,7 +2780,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
@@ -2816,7 +2816,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: editor.num_columns_for_line_number as u16,
@@ -2850,7 +2850,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: 7 + editor.num_columns_for_line_number as u16,
@@ -2884,7 +2884,7 @@ mod unit_tests {
                 has_open_multiline_comment: false,
             });
 
-            editor.set_num_columns_for_line_number();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
 
             editor.cursor_position = CursorPosition {
                 x: 5 + editor.num_columns_for_line_number as u16,
@@ -3110,6 +3110,78 @@ mod unit_tests {
 
             let expected_message = "~    Brendan's text editor --- version 1.0.0";
             assert_eq!(buffer, expected_message);
+        }
+    }
+
+    mod test_set_num_columns_for_line_number {
+        use super::*;
+
+        #[test]
+        fn test_no_lines_sets_zero_columns() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.lines.clear();
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
+
+            assert_eq!(editor.num_columns_for_line_number, 0);
+        }
+
+        #[test]
+        fn test_single_line_sets_proper_columns() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.lines.clear();
+            editor.lines.push(Line {
+                text: String::from("Sample text"),
+                render: String::from("Sample text"),
+                highlight: vec![],
+                index: 0,
+                has_open_multiline_comment: false,
+            });
+
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
+
+            assert_eq!(editor.num_columns_for_line_number, 4);
+        }
+
+        #[test]
+        fn test_multiple_lines_increase_columns() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.lines.clear();
+
+            for i in 0..100 {
+                editor.lines.push(Line {
+                    text: format!("Line {}", i),
+                    render: format!("Line {}", i),
+                    highlight: vec![],
+                    index: i,
+                    has_open_multiline_comment: false,
+                });
+            }
+
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
+
+            assert_eq!(editor.num_columns_for_line_number, 6);
+        }
+
+        #[test]
+        fn test_cursor_adjusted_if_less_than_num_columns() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.lines.clear();
+
+            for i in 0..10 {
+                editor.lines.push(Line {
+                    text: format!("Line {}", i),
+                    render: format!("Line {}", i),
+                    highlight: vec![],
+                    index: i,
+                    has_open_multiline_comment: false,
+                });
+            }
+
+            editor.cursor_position.x = 1;
+            editor.set_num_columns_for_line_number(LINE_NUMBER_GAP);
+
+            assert_eq!(editor.num_columns_for_line_number, 5);
+            assert_eq!(editor.cursor_position.x, 5);
         }
     }
 }
