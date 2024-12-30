@@ -3184,4 +3184,24 @@ mod unit_tests {
             assert_eq!(editor.cursor_position.x, 5);
         }
     }
+
+    mod test_get_editor_mode_display {
+        use super::*;
+
+        #[test]
+        fn test_get_editor_mode_display_normal_mode() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.editor_mode = EditorMode::Normal;
+            let display = editor.get_editor_mode_display();
+            assert!(display.contains("INSERT (i)"));
+        }
+
+        #[test]
+        fn test_get_editor_mode_display_insert_mode() {
+            let mut editor = EditorInstance::new(get_populated_termios());
+            editor.editor_mode = EditorMode::Insert;
+            let display = editor.get_editor_mode_display();
+            assert!(display.contains("NORMAL (<esc>)"));
+        }
+    }
 }
