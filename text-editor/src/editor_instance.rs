@@ -448,7 +448,8 @@ impl EditorInstance {
 
         for line in reader.lines() {
             let index = self.lines.len();
-            let text = line.expect(&format!("Failed to read line from file: {}", file_path));
+            let text =
+                line.unwrap_or_else(|_| panic!("Failed to read line from file: {}", file_path));
             let render = EditorInstance::get_render_text_from_text(&text);
 
             self.lines.push(Line {
@@ -1136,11 +1137,13 @@ impl EditorInstance {
         let saved_column_scrolled_to = self.column_scrolled_to;
         let saved_line_scrolled_to = self.line_scrolled_to;
 
-        if let None = prompt_user(
+        if prompt_user(
             self,
             "Search (ESC to abort, arrows to jump): ",
             Some(EditorInstance::find_text_callback),
-        ) {
+        )
+        .is_none()
+        {
             self.cursor_position = saved_cursor_position;
             self.column_scrolled_to = saved_column_scrolled_to;
             self.line_scrolled_to = saved_line_scrolled_to;
