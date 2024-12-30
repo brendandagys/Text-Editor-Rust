@@ -25,7 +25,7 @@ pub fn ctrl_key(k: char) -> u8 {
     (k as u8) & 0x1f // Ctrl key strips bits 5 and 6 from 7-bit ASCII
 }
 
-pub fn set_panic_hook(original_termios: Termios)  {
+pub fn set_panic_hook(original_termios: Termios) {
     let default_panic_hook = panic::take_hook();
 
     panic::set_hook(Box::new(move |info| {
@@ -126,9 +126,9 @@ pub fn get_window_size() -> WindowSize {
     }
 }
 
-pub fn watch_for_window_size_change(window_size_clone: Arc<RwLock<WindowSize>>)  {
+pub fn watch_for_window_size_change(window_size_clone: Arc<RwLock<WindowSize>>) {
     thread::spawn(move || {
-        let mut signals = Signals::new(&[SIGWINCH]).expect("Failed to register SIGWINCH signal");
+        let mut signals = Signals::new([SIGWINCH]).expect("Failed to register SIGWINCH signal");
 
         for _ in signals.forever() {
             *window_size_clone
@@ -138,7 +138,7 @@ pub fn watch_for_window_size_change(window_size_clone: Arc<RwLock<WindowSize>>) 
     });
 }
 
-pub fn flush_stdout()  {
+pub fn flush_stdout() {
     io::stdout().flush().expect("Failed to flush stdout");
 }
 

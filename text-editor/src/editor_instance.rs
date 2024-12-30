@@ -315,22 +315,20 @@ impl EditorInstance {
                     }
                 }
 
-                if (syntax.flags & HIGHLIGHT_NUMBERS) != 0 {
-                    if char.is_ascii_digit()
-                        && (is_previous_char_separator
-                            || previous_highlight == &HighlightType::Number)
-                        || (char == '.'
+                if (syntax.flags & HIGHLIGHT_NUMBERS) != 0
+                    && char.is_ascii_digit()
+                    && (is_previous_char_separator || previous_highlight == &HighlightType::Number)
+                    || (char == '.'
                             && previous_highlight == &HighlightType::Number
                             // Rust: 3..
                             && chars.clone().next() != Some('.'))
-                        || (['o', 'x'].contains(&char.to_ascii_lowercase())
-                            && previous_highlight == &HighlightType::Number)
-                    {
-                        highlight[i] = HighlightType::Number;
-                        i += 1;
-                        is_previous_char_separator = false;
-                        continue;
-                    }
+                    || (['o', 'x'].contains(&char.to_ascii_lowercase())
+                        && previous_highlight == &HighlightType::Number)
+                {
+                    highlight[i] = HighlightType::Number;
+                    i += 1;
+                    is_previous_char_separator = false;
+                    continue;
                 }
 
                 if is_previous_char_separator {
@@ -808,7 +806,7 @@ impl EditorInstance {
             calculated_x_position += 1;
         }
 
-        return calculated_x_position;
+        calculated_x_position
     }
 
     pub fn scroll(&mut self) {
@@ -1063,7 +1061,7 @@ impl EditorInstance {
 
             if self.lines[current_line_index as usize]
                 .render
-                .contains(&query)
+                .contains(query)
             {
                 self.previous_search_match_line_index = Some(current_line_index as usize);
 
@@ -1074,7 +1072,7 @@ impl EditorInstance {
                 self.cursor_position.x = self.render_x_to_cursor_x(
                     self.lines[current_line_index as usize]
                         .render
-                        .find(&query)
+                        .find(query)
                         .unwrap()
                         .try_into()
                         .expect(
@@ -1134,7 +1132,7 @@ impl EditorInstance {
     }
 
     fn prompt_and_find_text(&mut self) {
-        let saved_cursor_position = self.cursor_position.clone();
+        let saved_cursor_position = self.cursor_position;
         let saved_column_scrolled_to = self.column_scrolled_to;
         let saved_line_scrolled_to = self.line_scrolled_to;
 
@@ -1169,7 +1167,7 @@ impl EditorInstance {
             buffer.push(' ');
         }
 
-        buffer.push_str(&message);
+        buffer.push_str(message);
     }
 
     fn set_num_columns_for_line_number(&mut self, line_number_gap: u8) {
@@ -1205,7 +1203,7 @@ impl EditorInstance {
             let scrolled_to_row = row + self.line_scrolled_to;
 
             if scrolled_to_row as usize >= self.lines.len() {
-                if self.lines.len() == 0 && row == self.window_size.rows / 3 {
+                if self.lines.is_empty() && row == self.window_size.rows / 3 {
                     self.add_welcome_message_to_buffer(&mut buffer, &mut WELCOME_MESSAGE.clone());
                 } else {
                     buffer.push('~');
@@ -1245,7 +1243,7 @@ impl EditorInstance {
                         if char.is_ascii_control() {
                             buffer.push_str(AnsiEscapeCode::ReverseMode.as_str());
                             buffer.push(if char as u8 <= 26 {
-                                ('@' as u8 + char as u8) as char
+                                (b'@' + char as u8) as char
                             } else {
                                 '?'
                             });
