@@ -1007,8 +1007,16 @@ impl EditorInstance {
         let mut current_line_index: isize = match self.previous_search_match_line_index {
             Some(i) => i
                 .try_into()
-                .expect("Failed to convert lines index usize to isize for search"),
-            None => -1,
+                .expect("Failed to convert previous search match line index usize to isize"),
+            None => {
+                let previous_search_match_line_index: isize = self
+                    .cursor_position
+                    .y
+                    .try_into()
+                    .expect("Failed to convert u32 to isize");
+
+                previous_search_match_line_index - 1
+            }
         };
 
         for _ in 0..self.lines.len() {
@@ -1060,11 +1068,13 @@ impl EditorInstance {
                         ),
                 ) + self.num_columns_for_line_number as u16;
 
-                self.line_scrolled_to = self
-                    .lines
-                    .len()
-                    .try_into()
-                    .expect("Failed to convert line length usize to u32");
+                self.line_scrolled_to = self.cursor_position.y.saturating_sub(5);
+
+                if (self.line_scrolled_to + self.window_size.rows) as usize >= self.lines.len() {
+                    self.line_scrolled_to = (self.lines.len() - self.window_size.rows as usize + 1)
+                        .try_into()
+                        .expect("Failed to convert usize to u32");
+                }
 
                 self.saved_highlight = Some(SavedHighlight {
                     line_index: current_line_index as usize,
