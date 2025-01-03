@@ -46,12 +46,10 @@ fn get_cursor_position() -> WindowSize {
 
     let mut buffer = *get_buffer_lock();
     let mut response = Vec::new();
+    let mut stdin = io::stdin().lock();
 
     loop {
-        let n = io::stdin()
-            .lock()
-            .read(&mut buffer)
-            .expect("Failed to read from stdin");
+        let n = stdin.read(&mut buffer).expect("Failed to read from stdin");
 
         if buffer[0] == b'R' {
             break;

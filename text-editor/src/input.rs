@@ -24,7 +24,7 @@ pub enum Key {
 fn read_single_key() -> Option<u8> {
     let mut buffer = *get_buffer_lock();
 
-    match &mut io::stdin().lock().read_exact(&mut buffer) {
+    match &mut io::stdin().read_exact(&mut buffer) {
         Ok(_) => Some(buffer[0]),
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => None,
         Err(e) => panic!("Error reading byte into buffer: {:?}", e),
