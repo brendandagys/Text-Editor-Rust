@@ -1071,7 +1071,10 @@ impl EditorInstance {
                 self.line_scrolled_to = self.cursor_position.y.saturating_sub(5);
 
                 if (self.line_scrolled_to + self.window_size.rows) as usize >= self.lines.len() {
-                    self.line_scrolled_to = (self.lines.len() - self.window_size.rows as usize + 1)
+                    self.line_scrolled_to = self
+                        .lines
+                        .len()
+                        .saturating_sub(self.window_size.rows as usize)
                         .try_into()
                         .expect("Failed to convert usize to u32");
                 }
